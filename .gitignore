@@ -1,0 +1,20 @@
+# Python
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Backend local env/artifacts
+backend/.venv/
+backend/.env
+backend/*.db
+backend/*.out
+backend/*.err
+backend/pytest-cache-files-*/
+
+# Frontend local logs
+frontend/*.out
+frontend/*.err
+
+# OS/editor
+.DS_Store
+Thumbs.db
