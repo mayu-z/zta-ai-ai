@@ -33,12 +33,29 @@
         └───────────┬───────────┘
                     ↓
 
-[ RESPONSE COMPOSER (LLM) ]
-  - Convert tokens → natural language
-  - Apply tone and formatting
+[ RESPONSE COMPOSER (SLM - SANDBOXED & UNTRUSTED) ]
+  ⚠️  SLM Constraints:
+    - Receives ONLY pre-approved, structured claims
+    - NO access to databases or raw data
+    - NO decision-making authority
+    - NO tool or function calling
+    - NO memory or state across requests
+    - Runs in isolated, sandboxed environment
+    - Stateless per request
+  
+  Responsibilities:
+    - Convert structured claims → natural language
+    - Apply tone and formatting
+    - Generate explanations & summaries
+    - Output: Structured JSON (not free-form)
+  
   Example:
-    { "revenue_Q1": "₹5Cr" }
-    → "Revenue for Q1 is ₹5 Crore."
+    Input:  { "revenue_Q1": "₹5Cr" }
+    Output: {
+              "summary": "Revenue for Q1 is ₹5 Crore.",
+              "explanation": "...",
+              "confidence": 0.95
+            }
         ↓
 [ DE-TOKENIZER + MASKING ]
   - Re-apply real values (if authorized)
