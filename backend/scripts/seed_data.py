@@ -44,6 +44,7 @@ def seed() -> None:
             google_workspace_domain="campusb.edu",
         )
         db.add_all([campus_a, campus_b])
+        db.flush()
 
         users = [
             User(
@@ -145,9 +146,10 @@ def seed() -> None:
             ),
         ]
         db.add_all(users)
+        db.flush()
 
         source_a = DataSource(
-            id="daaaaaaaaaa-1111-1111-1111-111111111111",
+            id="daaaaaaa-1111-1111-1111-111111111111",
             tenant_id=campus_a.id,
             name="Campus A Claims",
             source_type=DataSourceType.mock_claims,
@@ -156,7 +158,7 @@ def seed() -> None:
             status=DataSourceStatus.connected,
         )
         source_b = DataSource(
-            id="daaaaaaaaaa-2222-2222-2222-222222222222",
+            id="daaaaaaa-2222-2222-2222-222222222222",
             tenant_id=campus_b.id,
             name="Campus B Claims",
             source_type=DataSourceType.mock_claims,
