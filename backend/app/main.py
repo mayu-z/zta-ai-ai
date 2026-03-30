@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import admin, auth, chat
+from app.api.routes import admin, auth, chat, pipeline_monitor
 from app.core.config import get_settings
 from app.core.exceptions import ZTAError
 from app.db.init_db import create_all_tables
@@ -62,3 +62,4 @@ def health() -> dict[str, str]:
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
+app.include_router(pipeline_monitor.router)

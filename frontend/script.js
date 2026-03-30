@@ -383,6 +383,281 @@ function bindQuickLoginButtons() {
   });
 }
 
+// ==================== Pipeline Monitor ====================
+
+const pipelineMonitor = {
+  ws: null,
+  activePipelines: new Map(),
+  selectedPipelineId: null,
+  stages: [
+    { index: 0, name: "history_user_message", label: "Store User Message" },
+    { index: 1, name: "it_head_check", label: "IT HEAD Check" },
+    { index: 2, name: "interpreter", label: "Interpreter Layer" },
+    { index: 3, name: "intent_cache", label: "Intent Cache Check" },
+    { index: 4, name: "slm_render", label: "SLM Render" },
+    { index: 5, name: "output_guard", label: "Output Guard" },
+    { index: 6, name: "compiler", label: "Compiler" },
+    { index: 7, name: "policy_authorization", label: "Policy Authorization" },
+    { index: 8, name: "tool_execution", label: "Tool Execution" },
+    { index: 9, name: "field_masking", label: "Field Masking" },
+    { index: 10, name: "detokenization", label: "Detokenization" },
+    { index: 11, name: "cache_storage", label: "Cache Storage" },
+    { index: 12, name: "history_assistant_message", label: "Store Assistant Message" },
+    { index: 13, name: "audit_logging", label: "Audit Logging" }
+  ]
+};
+
+function initializePipelineStages() {
+  const container = document.getElementById('pipelineStages');
+  if (!container) return;
+
+  container.innerHTML = '';
+  pipelineMonitor.stages.forEach(stage => {
+    const stageCard = document.createElement('div');
+    stageCard.className = 'stage-card pending';
+    stageCard.id = `stage-${stage.index}`;
+    stageCard.innerHTML = `
+      <div class="stage-info">
+        <div class="stage-name">${stage.label}</div>
+        <div class="stage-meta" id="stage-meta-${stage.index}">Waiting...</div>
+      </div>
+      <div class="stage-timing" id="stage-timing-${stage.index}">--</div>
+    `;
+    container.appendChild(stageCard);
+  });
+}
+
+function connectPipelineMonitor() {
+  const token = getToken();
+  if (!token) {
+    setStatus('error', 'Login as IT HEAD first');
+    return;
+  }
+
+  const wsBase = baseUrl().replace(/^http/, 'ws');
+  const ws = new WebSocket(`${wsBase}/admin/pipeline/monitor?token=${encodeURIComponent(token)}`);
+
+  ws.onopen = () => {
+    pipelineMonitor.ws = ws;
+    document.getElementById('btnConnectMonitor').disabled = true;
+    document.getElementById('btnDisconnectMonitor').disabled = false;
+    document.getElementById('monitorStatus').className = 'status ok';
+    document.getElementById('monitorStatus').textContent = 'Connected';
+    initializePipelineStages();
+    setStatus('ok', 'Pipeline monitor connected');
+  };
+
+  ws.onmessage = (evt) => {
+    const message = JSON.parse(evt.data);
+    handlePipelineEvent(message);
+  };
+
+  ws.onerror = () => {
+    document.getElementById('monitorStatus').className = 'status error';
+    document.getElementById('monitorStatus').textContent = 'Connection Error';
+    setStatus('error', 'Pipeline monitor connection error');
+  };
+
+  ws.onclose = () => {
+    pipelineMonitor.ws = null;
+    document.getElementById('btnConnectMonitor').disabled = false;
+    document.getElementById('btnDisconnectMonitor').disabled = true;
+    document.getElementById('monitorStatus').className = 'status idle';
+    document.getElementById('monitorStatus').textContent = 'Disconnected';
+    setStatus('idle', 'Pipeline monitor disconnected');
+  };
+}
+
+function disconnectPipelineMonitor() {
+  if (pipelineMonitor.ws) {
+    pipelineMonitor.ws.close();
+  }
+}
+
+function handlePipelineEvent(message) {
+  const { type, data } = message;
+
+  switch (type) {
+    case 'connected':
+      console.log('Pipeline monitor connected');
+      break;
+
+    case 'pipeline_start':
+      handlePipelineStart(data);
+      break;
+
+    case 'stage_event':
+      handleStageEvent(data);
+      break;
+
+    case 'pipeline_complete':
+      handlePipelineComplete(data);
+      break;
+
+    case 'error':
+      console.error('Pipeline monitor error:', message);
+      setStatus('error', data.message || 'Monitor error');
+      break;
+  }
+}
+
+function handlePipelineStart(data) {
+  const { pipeline_id, query_text, user_id } = data;
+
+  pipelineMonitor.activePipelines.set(pipeline_id, {
+    id: pipeline_id,
+    query: query_text,
+    user: user_id,
+    stages: new Map(),
+    startedAt: new Date(data.started_at),
+    status: 'running'
+  });
+
+  // Auto-select first pipeline
+  if (!pipelineMonitor.selectedPipelineId) {
+    pipelineMonitor.selectedPipelineId = pipeline_id;
+  }
+
+  updateActivePipelinesList();
+
+  // Reset stage display if this is the selected pipeline
+  if (pipelineMonitor.selectedPipelineId === pipeline_id) {
+    resetStageDisplay();
+  }
+}
+
+function handleStageEvent(data) {
+  const { pipeline_id, stage_name, stage_index, status, duration_ms, error_message } = data;
+
+  const pipeline = pipelineMonitor.activePipelines.get(pipeline_id);
+  if (!pipeline) return;
+
+  pipeline.stages.set(stage_index, {
+    name: stage_name,
+    status,
+    duration_ms,
+    error_message
+  });
+
+  // Update visualization if this is the selected pipeline
+  if (pipelineMonitor.selectedPipelineId === pipeline_id) {
+    updateStageCard(stage_index, status, duration_ms, error_message);
+  }
+}
+
+function handlePipelineComplete(data) {
+  const { pipeline_id, status, total_duration_ms, final_message } = data;
+
+  const pipeline = pipelineMonitor.activePipelines.get(pipeline_id);
+  if (pipeline) {
+    pipeline.status = status;
+    pipeline.totalDuration = total_duration_ms;
+    pipeline.finalMessage = final_message;
+    updateActivePipelinesList();
+  }
+}
+
+function updateStageCard(stageIndex, status, durationMs, errorMessage) {
+  const card = document.getElementById(`stage-${stageIndex}`);
+  const meta = document.getElementById(`stage-meta-${stageIndex}`);
+  const timing = document.getElementById(`stage-timing-${stageIndex}`);
+
+  if (!card) return;
+
+  // Update status class
+  card.className = `stage-card ${status}`;
+
+  // Update metadata
+  if (status === 'started') {
+    meta.textContent = 'Running...';
+    timing.textContent = '⏱️';
+  } else if (status === 'completed') {
+    meta.textContent = 'Completed';
+    timing.textContent = `${durationMs}ms`;
+  } else if (status === 'error') {
+    meta.textContent = errorMessage || 'Error occurred';
+    timing.textContent = `${durationMs}ms`;
+  } else if (status === 'skipped') {
+    meta.textContent = 'Skipped';
+    timing.textContent = '--';
+  }
+}
+
+function resetStageDisplay() {
+  pipelineMonitor.stages.forEach(stage => {
+    const card = document.getElementById(`stage-${stage.index}`);
+    const meta = document.getElementById(`stage-meta-${stage.index}`);
+    const timing = document.getElementById(`stage-timing-${stage.index}`);
+
+    if (card) card.className = 'stage-card pending';
+    if (meta) meta.textContent = 'Waiting...';
+    if (timing) timing.textContent = '--';
+  });
+}
+
+function updateActivePipelinesList() {
+  const container = document.getElementById('activePipelines');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  // Show most recent first
+  const pipelines = Array.from(pipelineMonitor.activePipelines.values())
+    .sort((a, b) => b.startedAt - a.startedAt)
+    .slice(0, 20); // Show last 20
+
+  if (pipelines.length === 0) {
+    container.innerHTML = '<p class="muted">No active pipelines</p>';
+    return;
+  }
+
+  pipelines.forEach(pipeline => {
+    const item = document.createElement('div');
+    item.className = 'pipeline-item';
+    if (pipeline.id === pipelineMonitor.selectedPipelineId) {
+      item.classList.add('selected');
+    }
+
+    const statusIcon = pipeline.status === 'running' ? '🔄' :
+                      pipeline.status === 'success' ? '✅' : '❌';
+
+    item.innerHTML = `
+      <div class="pipeline-query">${statusIcon} ${pipeline.query.substring(0, 40)}${pipeline.query.length > 40 ? '...' : ''}</div>
+      <div class="pipeline-details">
+        ${pipeline.user} • ${pipeline.startedAt.toLocaleTimeString()}
+        ${pipeline.totalDuration ? ` • ${pipeline.totalDuration}ms` : ''}
+      </div>
+    `;
+
+    item.addEventListener('click', () => {
+      pipelineMonitor.selectedPipelineId = pipeline.id;
+      updateActivePipelinesList();
+      renderSelectedPipeline(pipeline);
+    });
+
+    container.appendChild(item);
+  });
+}
+
+function renderSelectedPipeline(pipeline) {
+  resetStageDisplay();
+
+  pipeline.stages.forEach((stageData, stageIndex) => {
+    updateStageCard(
+      stageIndex,
+      stageData.status,
+      stageData.duration_ms,
+      stageData.error_message
+    );
+  });
+}
+
+function initPipelineMonitor() {
+  bind('btnConnectMonitor', connectPipelineMonitor);
+  bind('btnDisconnectMonitor', disconnectPipelineMonitor);
+  initializePipelineStages();
+}
+
 function init() {
   loadSavedToken();
   bindQuickLoginButtons();
@@ -403,6 +678,9 @@ function init() {
   bind("btnCreateSource", createSource);
   bind("btnAudit", getAudit);
   bind("btnKill", killSwitch);
+
+  // Initialize pipeline monitor
+  initPipelineMonitor();
 
   document.getElementById("btnClearToken").addEventListener("click", () => {
     saveToken("");

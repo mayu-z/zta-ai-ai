@@ -64,62 +64,89 @@
       <div id="chatStream" class="stream-box"></div>
     </section>
 
-    <section class="card">
-      <h2>Admin (IT Head)</h2>
-      <p class="muted">These endpoints require IT Head persona token.</p>
+    <section class="card pipeline-monitor-section">
+      <h2>Pipeline Monitor (IT Head)</h2>
+      <p class="muted">Real-time visualization of ZTA query pipeline execution</p>
 
-      <h3>Users</h3>
-      <div class="row">
-        <input id="usersPage" type="number" value="1" min="1" />
-        <input id="usersLimit" type="number" value="20" min="1" max="500" />
-        <input id="usersSearch" type="text" placeholder="search email/name" />
-        <button id="btnGetUsers">GET /admin/users</button>
-      </div>
-      <div id="usersTableWrap"></div>
-
-      <h3>Update User (PUT)</h3>
-      <div class="row wrap">
-        <input id="updUserId" type="text" placeholder="user_id" />
-        <input id="updPersona" type="text" placeholder="persona_type (optional)" />
-        <input id="updDept" type="text" placeholder="department (optional)" />
-        <input id="updStatus" type="text" placeholder="status active/inactive (optional)" />
-        <button id="btnUpdateUser">PUT /admin/users/{id}</button>
+      <div class="controls-row">
+        <button id="btnConnectMonitor">Connect Monitor</button>
+        <button id="btnDisconnectMonitor" disabled>Disconnect</button>
+        <span id="monitorStatus" class="status idle">Not Connected</span>
       </div>
 
-      <h3>Bulk Import Users (POST multipart)</h3>
-      <div class="row">
-        <input id="importFile" type="file" accept=".csv" />
-        <button id="btnImportUsers">POST /admin/users/import</button>
+      <div id="pipelineVisualization" class="pipeline-viz-container">
+        <div class="pipeline-stages-wrapper">
+          <h3>Pipeline Stages</h3>
+          <div class="pipeline-stages" id="pipelineStages">
+            <!-- Stage cards will be dynamically created here -->
+          </div>
+        </div>
+
+        <div class="active-pipelines-wrapper">
+          <h3>Active Executions</h3>
+          <div id="activePipelines" class="active-pipelines-list">
+            <p class="muted">No active pipelines</p>
+          </div>
+        </div>
       </div>
 
-      <h3>Data Sources</h3>
-      <div class="row wrap">
-        <button id="btnListSources">GET /admin/data-sources</button>
-        <input id="schemaSourceId" type="text" placeholder="source_id" />
-        <button id="btnGetSchema">GET /admin/data-sources/{id}/schema</button>
-      </div>
-      <div class="row wrap">
-        <input id="srcName" type="text" placeholder="name" />
-        <input id="srcType" type="text" placeholder="source_type e.g. postgresql" />
-        <input id="srcDeptScope" type="text" placeholder="department_scope comma-separated" />
-        <textarea id="srcConfig" rows="2" placeholder='config JSON e.g. {"host":"db"}'></textarea>
-        <button id="btnCreateSource">POST /admin/data-sources</button>
-      </div>
+      <!-- Collapsible section for traditional admin controls -->
+      <details class="admin-controls-legacy">
+        <summary>Legacy Admin Controls</summary>
 
-      <h3>Audit Log</h3>
-      <div class="row wrap">
-        <input id="auditPage" type="number" value="1" min="1" />
-        <input id="auditLimit" type="number" value="20" min="1" max="500" />
-        <label><input id="auditBlockedOnly" type="checkbox" /> blocked_only</label>
-        <button id="btnAudit">GET /admin/audit-log</button>
-      </div>
+        <h3>Users</h3>
+        <div class="row">
+          <input id="usersPage" type="number" value="1" min="1" />
+          <input id="usersLimit" type="number" value="20" min="1" max="500" />
+          <input id="usersSearch" type="text" placeholder="search email/name" />
+          <button id="btnGetUsers">GET /admin/users</button>
+        </div>
+        <div id="usersTableWrap"></div>
 
-      <h3>Kill Switch</h3>
-      <div class="row wrap">
-        <input id="killScope" type="text" placeholder="all | department | user" />
-        <input id="killTarget" type="text" placeholder="target_id (optional)" />
-        <button id="btnKill">POST /admin/security/kill</button>
-      </div>
+        <h3>Update User (PUT)</h3>
+        <div class="row wrap">
+          <input id="updUserId" type="text" placeholder="user_id" />
+          <input id="updPersona" type="text" placeholder="persona_type (optional)" />
+          <input id="updDept" type="text" placeholder="department (optional)" />
+          <input id="updStatus" type="text" placeholder="status active/inactive (optional)" />
+          <button id="btnUpdateUser">PUT /admin/users/{id}</button>
+        </div>
+
+        <h3>Bulk Import Users (POST multipart)</h3>
+        <div class="row">
+          <input id="importFile" type="file" accept=".csv" />
+          <button id="btnImportUsers">POST /admin/users/import</button>
+        </div>
+
+        <h3>Data Sources</h3>
+        <div class="row wrap">
+          <button id="btnListSources">GET /admin/data-sources</button>
+          <input id="schemaSourceId" type="text" placeholder="source_id" />
+          <button id="btnGetSchema">GET /admin/data-sources/{id}/schema</button>
+        </div>
+        <div class="row wrap">
+          <input id="srcName" type="text" placeholder="name" />
+          <input id="srcType" type="text" placeholder="source_type e.g. postgresql" />
+          <input id="srcDeptScope" type="text" placeholder="department_scope comma-separated" />
+          <textarea id="srcConfig" rows="2" placeholder='config JSON e.g. {"host":"db"}'></textarea>
+          <button id="btnCreateSource">POST /admin/data-sources</button>
+        </div>
+
+        <h3>Audit Log</h3>
+        <div class="row wrap">
+          <input id="auditPage" type="number" value="1" min="1" />
+          <input id="auditLimit" type="number" value="20" min="1" max="500" />
+          <label><input id="auditBlockedOnly" type="checkbox" /> blocked_only</label>
+          <button id="btnAudit">GET /admin/audit-log</button>
+        </div>
+
+        <h3>Kill Switch</h3>
+        <div class="row wrap">
+          <input id="killScope" type="text" placeholder="all | department | user" />
+          <input id="killTarget" type="text" placeholder="target_id (optional)" />
+          <button id="btnKill">POST /admin/security/kill</button>
+        </div>
+      </details>
     </section>
 
     <section class="card">
