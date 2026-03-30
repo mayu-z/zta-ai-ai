@@ -18,9 +18,76 @@ const els = {
   chatQuery: document.getElementById("chatQuery"),
   chatStream: document.getElementById("chatStream"),
   usersTableWrap: document.getElementById("usersTableWrap"),
+  loginDropdown: document.getElementById("loginDropdown"),
+  btnLoginMenu: document.getElementById("btnLoginMenu"),
+  btnLogout: document.getElementById("btnLogout"),
+  btnClearToken: document.getElementById("btnClearToken"),
 };
 
 let currentUser = null;
+
+// ============================================================================
+// LOGIN DROPDOWN & LOGOUT FUNCTIONALITY
+// ============================================================================
+
+function toggleLoginDropdown(e) {
+  e.stopPropagation();
+  if (els.loginDropdown.classList.contains("show")) {
+    els.loginDropdown.classList.remove("show");
+  } else {
+    els.loginDropdown.classList.add("show");
+  }
+}
+
+function closeLoginDropdown() {
+  els.loginDropdown.classList.remove("show");
+}
+
+function handleLoginDropdownItem(email) {
+  els.googleToken.value = `mock:${email}`;
+  closeLoginDropdown();
+  // Auto-trigger login
+  handleLogin().catch((err) => {
+    setStatus("error", err.message || String(err));
+  });
+}
+
+// Update handleLogout to also close dropdown and clear local data
+async function handleLogoutHeader() {
+  try {
+    await callApi("/auth/logout", { method: "POST" });
+  } catch (err) {
+    // Logout API might fail if token invalid, but we should still clear locally
+    console.warn("Logout API call failed:", err);
+  }
+  saveToken("");
+  currentUser = null;
+  els.authInfo.textContent = "Logged out";
+  closeLoginDropdown();
+  setStatus("ok", "Logged out");
+}
+
+// Event listeners for login dropdown
+els.btnLoginMenu.addEventListener("click", toggleLoginDropdown);
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".login-dropdown-wrapper")) {
+    closeLoginDropdown();
+  }
+});
+
+document.querySelectorAll(".dropdown-item").forEach((item) => {
+  item.addEventListener("click", function () {
+    const email = this.getAttribute("data-email");
+    handleLoginDropdownItem(email);
+  });
+});
+
+els.btnLogout.addEventListener("click", handleLogoutHeader);
+
+// ============================================================================
+// EXISTING FUNCTIONALITY (PRESERVED)
+// ============================================================================
 
 function baseUrl() {
   return els.apiBase.value.trim().replace(/\/$/, "") || "http://localhost:8000";
@@ -660,12 +727,11 @@ function initPipelineMonitor() {
 
 function init() {
   loadSavedToken();
-  bindQuickLoginButtons();
+  // bindQuickLoginButtons() removed - now using header dropdown
 
   bind("btnHealth", checkHealth);
   bind("btnLogin", handleLogin);
   bind("btnRefresh", handleRefresh);
-  bind("btnLogout", handleLogout);
   bind("btnSuggestions", getSuggestions);
   bind("btnHistory", getHistory);
   bind("btnStreamChat", streamChat);
@@ -679,15 +745,19 @@ function init() {
   bind("btnAudit", getAudit);
   bind("btnKill", killSwitch);
 
+  // Legacy button handler for token clearing
+  const btnClearToken = document.getElementById("btnClearToken");
+  if (btnClearToken) {
+    btnClearToken.addEventListener("click", () => {
+      saveToken("");
+      currentUser = null;
+      els.authInfo.textContent = "Token cleared";
+      setStatus("idle", "Idle");
+    });
+  }
+
   // Initialize pipeline monitor
   initPipelineMonitor();
-
-  document.getElementById("btnClearToken").addEventListener("click", () => {
-    saveToken("");
-    currentUser = null;
-    els.authInfo.textContent = "Token cleared";
-    setStatus("idle", "Idle");
-  });
 
   setStatus("idle", "Ready");
 }
