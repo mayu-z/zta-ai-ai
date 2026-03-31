@@ -870,10 +870,10 @@
         setAuthText(`Authenticated: ${state.activeUser}`, STATUS.success);
         appendLog(STATUS.success, `Auth success for ${state.activeUser}`);
       } catch (err) {
-        saveToken(`demo-local-${Date.now()}`);
-        state.activeUser = email;
-        setAuthText(`Demo token active: ${state.activeUser}`, STATUS.processing);
-        appendLog(STATUS.error, `Auth API unavailable: ${err.message}. Demo token applied locally.`);
+        saveToken("");
+        state.activeUser = "";
+        setAuthText("Authentication failed", STATUS.error);
+        appendLog(STATUS.error, `Auth failed for ${email}: ${err.message}`);
       }
     }
 
@@ -1016,20 +1016,9 @@
       els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
     }
 
-    function buildAssistantReply(query, failedStage) {
-      if (failedStage) {
-        return `Request blocked at ${failedStage}. Policy enforcement denied this action.`;
-      }
-
-      const normalized = query.trim();
-      return `Processed request: "${normalized}". Access controls passed, response composed, and audit trail updated.`;
-    }
-
-    async function simulatePipeline(query) {
+    async function simulatePipeline() {
       const flatStages = PIPELINE_GROUPS.flatMap((group) => group.stages);
-      const shouldFail = /\b(deny|blocked|fail|error)\b/i.test(query);
       let totalLatency = 0;
-      let failedStage = "";
 
       resetPipeline();
 
@@ -1041,21 +1030,79 @@
         await wait(stepLatency);
         totalLatency += stepLatency;
 
-        if (shouldFail && stage.key === "policy_authorization") {
-          failedStage = stage.label;
-          setStage(stage.key, STATUS.error, stepLatency, "Failed");
-          appendLog(STATUS.error, `${stage.label} failed`, { latency_ms: stepLatency });
-          break;
-        }
-
         setStage(stage.key, STATUS.success, stepLatency, "Success");
         appendLog(STATUS.success, `${stage.label} completed`, { latency_ms: stepLatency });
       }
 
       return {
-        failedStage,
         totalLatency
       };
+    }
+
+    function streamChatResponse(query) {
+      return new Promise((resolve, reject) => {
+        if (!state.token) {
+          reject(new Error("Login first using the Auth dropdown."));
+          return;
+        }
+
+        const wsBase = baseUrl().replace(/^http/, "ws");
+        const ws = new WebSocket(`${wsBase}/chat/stream?token=${encodeURIComponent(state.token)}`);
+        const startedAt = performance.now();
+        let settled = false;
+        let responseText = "";
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ query }));
+        };
+
+        ws.onmessage = (event) => {
+          let frame;
+          try {
+            frame = JSON.parse(event.data);
+          } catch (err) {
+            return;
+          }
+
+          if (frame.type === "token") {
+            if (frame.content) {
+              responseText += frame.content;
+            }
+            return;
+          }
+
+          if (frame.type === "done") {
+            if (settled) return;
+            settled = true;
+            ws.close();
+            resolve({
+              text: responseText.trim() || "No response content returned.",
+              source: frame.source || "unknown",
+              latencyMs: Number.isFinite(frame.latency_ms) ? frame.latency_ms : Math.round(performance.now() - startedAt)
+            });
+            return;
+          }
+
+          if (frame.type === "error") {
+            if (settled) return;
+            settled = true;
+            ws.close();
+            reject(new Error(frame.message || "Chat stream error"));
+          }
+        };
+
+        ws.onerror = () => {
+          if (settled) return;
+          settled = true;
+          reject(new Error("WebSocket connection failed"));
+        };
+
+        ws.onclose = () => {
+          if (settled) return;
+          settled = true;
+          reject(new Error("Chat stream closed before completion"));
+        };
+      });
     }
 
     async function handleChatSubmit(event) {
@@ -1071,26 +1118,28 @@
       els.chatInput.disabled = true;
       els.btnSend.disabled = true;
 
-      const pipeline = await simulatePipeline(query);
-      const settleDelay = randomInt(90, 220);
-      await wait(settleDelay);
+      const pipelinePromise = simulatePipeline();
 
-      const total = pipeline.totalLatency + settleDelay;
-      const reply = buildAssistantReply(query, pipeline.failedStage);
+      try {
+        const [response, pipeline] = await Promise.all([streamChatResponse(query), pipelinePromise]);
+        const totalLatency = Number.isFinite(response.latencyMs) && response.latencyMs > 0
+          ? response.latencyMs
+          : pipeline.totalLatency;
 
-      addChatMessage("assistant", reply, total);
-
-      if (pipeline.failedStage) {
-        setChatStatus("Blocked", STATUS.error);
-        appendLog(STATUS.error, "Response blocked by policy", { stage: pipeline.failedStage, latency_ms: total });
-      } else {
+        addChatMessage("assistant", response.text, totalLatency);
         setChatStatus("Delivered", STATUS.success);
-        appendLog(STATUS.success, "Response sent", { latency_ms: total });
+        appendLog(STATUS.success, "Response sent", { latency_ms: totalLatency, source: response.source });
+      } catch (err) {
+        await pipelinePromise.catch(() => {});
+        setStage("policy_authorization", STATUS.error, null, "Failed");
+        setChatStatus("Error", STATUS.error);
+        addChatMessage("assistant", `Unable to complete request: ${err.message}`, randomInt(15, 45));
+        appendLog(STATUS.error, `Chat request failed: ${err.message}`);
+      } finally {
+        els.chatInput.disabled = false;
+        els.btnSend.disabled = false;
+        els.chatInput.focus();
       }
-
-      els.chatInput.disabled = false;
-      els.btnSend.disabled = false;
-      els.chatInput.focus();
     }
 
     function bindEvents() {
@@ -1144,7 +1193,7 @@
       resetPipeline();
       bindEvents();
       hydrateState();
-      addChatMessage("assistant", "ZTA assistant online. Submit a query to run the simulated pipeline.", 0);
+      addChatMessage("assistant", "ZTA assistant online. Ask a query to fetch a real backend response.", 0);
       appendLog(STATUS.success, "UI initialized");
     }
 
