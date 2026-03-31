@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.compiler.service import compiler_service
 from app.core.exceptions import AuthorizationError, ZTAError
 from app.interpreter.cache import intent_cache_service
+from app.interpreter.conversational import detect_conversational_query, is_unclear_query
 from app.interpreter.service import interpreter_service
 from app.policy.engine import policy_engine
 from app.schemas.pipeline import AuditEvent, PipelineResult, ScopeContext
@@ -84,6 +85,52 @@ class PipelineService:
         # Stage 0: Store user message in history
         with self._track_stage(pipeline_id, "history_user_message", 0):
             history_service.append(scope.tenant_id, scope.user_id, scope.session_id, "user", query_text)
+
+        # Stage 0.5: Check for conversational queries (greetings, help, etc.)
+        conversational = detect_conversational_query(query_text)
+        if conversational.is_conversational:
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            response_text = conversational.response or "Hello! How can I help you?"
+
+            # Store assistant response in history
+            history_service.append(scope.tenant_id, scope.user_id, scope.session_id, "assistant", response_text)
+
+            # Emit pipeline completion for conversational query
+            pipeline_monitor.emit_pipeline_complete(
+                pipeline_id=pipeline_id, status="success", total_duration_ms=latency_ms
+            )
+
+            return PipelineResult(
+                response_text=response_text,
+                source="conversational",
+                latency_ms=latency_ms,
+                intent_hash="conversational",
+                domains_accessed=[],
+                was_blocked=False,
+            )
+
+        # Stage 0.6: Check for unclear queries (no data keywords)
+        unclear = is_unclear_query(query_text)
+        if unclear.is_conversational:
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            response_text = unclear.response or "I'm not sure what you're looking for. Could you please rephrase your question?"
+
+            # Store assistant response in history
+            history_service.append(scope.tenant_id, scope.user_id, scope.session_id, "assistant", response_text)
+
+            # Emit pipeline completion for unclear query
+            pipeline_monitor.emit_pipeline_complete(
+                pipeline_id=pipeline_id, status="success", total_duration_ms=latency_ms
+            )
+
+            return PipelineResult(
+                response_text=response_text,
+                source="clarification",
+                latency_ms=latency_ms,
+                intent_hash="unclear",
+                domains_accessed=[],
+                was_blocked=False,
+            )
 
         try:
             # Stage 1: IT HEAD check

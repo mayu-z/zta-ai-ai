@@ -15,6 +15,25 @@ except ImportError:  # pragma: no cover - handled at runtime when dependency is 
 logger = logging.getLogger(__name__)
 UNSAFE_HINTS = ("select ", " from ", "schema", "table", "system prompt")
 
+# Predefined templates for known intents - ensures accurate, context-appropriate responses
+INTENT_TEMPLATES: dict[str, str] = {
+    # Student intents
+    "student_attendance": "Your attendance is [SLOT_1]% across [SLOT_2] subjects.",
+    "student_grades": "Your current GPA is [SLOT_1] with [SLOT_2] subjects passed.",
+    "student_fee": "Your fee balance is $[SLOT_1] with due date [SLOT_2].",
+    # Faculty intents
+    "faculty_course_attendance": "You are teaching [SLOT_1] courses with an average attendance of [SLOT_2]%.",
+    # Department intents
+    "department_metrics": "Department metric is [SLOT_1] with [SLOT_2] students enrolled.",
+    # Admin intents
+    "admin_function_report": "Function metric is [SLOT_1] across [SLOT_2] records.",
+    # Executive intents
+    "executive_kpi": "The KPI value is [SLOT_1] with a trend change of [SLOT_2].",
+    "executive_enrollment_overview": "Total enrollment is [SLOT_1] across [SLOT_2] institutions.",
+    # Admissions
+    "admissions_overview": "Admissions metric is [SLOT_1] with [SLOT_2] applicants.",
+}
+
 
 class SLMSimulator:
     """
@@ -33,11 +52,15 @@ class SLMSimulator:
         if scope.persona_type == "it_head":
             return "Access to chat templates is blocked for this persona."
 
+        # Use predefined template if available for this intent
+        if intent.name in INTENT_TEMPLATES:
+            return INTENT_TEMPLATES[intent.name]
+
+        # Fall back to SLM generation for unknown intents
         if self.settings.slm_provider.lower() != "nvidia":
-            raise ValidationError(
-                message="SLM provider is not configured for hosted generation",
-                code="SLM_PROVIDER_UNAVAILABLE",
-            )
+            # If no SLM and no predefined template, use a generic fallback
+            slots = " and ".join(f"[SLOT_{idx + 1}]" for idx in range(len(intent.slot_keys))) or "[SLOT_1]"
+            return f"The requested {intent.domain} data shows {slots}."
 
         return self._render_with_hosted_slm(intent, scope)
 

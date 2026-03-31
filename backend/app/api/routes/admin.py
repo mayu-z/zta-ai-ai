@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_scope
 from app.core.exceptions import AuthorizationError, ValidationError
 from app.core.redis_client import redis_client
-from app.db.models import AuditLog, DataSource, DataSourceStatus, DataSourceType, PersonaType, SchemaField, User, UserStatus
+from app.db.models import AuditLog, DataSource, DataSourceStatus, DataSourceType, IntentCacheEntry, PersonaType, SchemaField, User, UserStatus
 from app.db.session import get_db
 from app.schemas.admin import DataSourceCreateRequest, KillSwitchRequest, UserUpdateRequest
 from app.schemas.pipeline import ScopeContext
@@ -292,4 +292,35 @@ def kill_sessions(
         return {"scope": "user", "target_id": payload.target_id, "sessions_revoked": 1}
 
     raise ValidationError(message="scope must be one of: all, department, user", code="INVALID_SCOPE")
+
+
+@router.post("/cache/clear")
+def clear_intent_cache(
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
+    """Clear all cached intent templates for the tenant to force fresh template generation."""
+    # Clear from Redis
+    pattern = f"intent:{scope.tenant_id}:*"
+    cursor = 0
+    deleted_redis = 0
+    while True:
+        cursor, keys = redis_client.client.scan(cursor, match=pattern, count=100)
+        if keys:
+            redis_client.client.delete(*keys)
+            deleted_redis += len(keys)
+        if cursor == 0:
+            break
+
+    # Clear from database
+    deleted_db = db.query(IntentCacheEntry).filter(
+        IntentCacheEntry.tenant_id == scope.tenant_id
+    ).delete()
+    db.commit()
+
+    return {
+        "cleared_redis": deleted_redis,
+        "cleared_db": deleted_db,
+        "message": "Intent cache cleared successfully. New queries will use fresh templates.",
+    }
 
