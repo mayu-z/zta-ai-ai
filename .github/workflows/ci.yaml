@@ -1,0 +1,193 @@
+name: Backend CI — FastAPI + Celery + PostgreSQL + Redis
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.TEST_DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      ENV: test
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DATABASE_URL: postgresql+asyncpg://${{ secrets.TEST_DB_USER }}:${{ secrets.TEST_DB_PASSWORD }}@localhost:5432/testdb
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      CELERY_RESULT_BACKEND: redis://localhost:6379/2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+    # ── STEP 3 — INSTALL DEPENDENCIES ──
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+    # ── STEP 4 — LINT & FORMAT ──
+      - name: Lint with flake8
+        run: flake8 app/ --max-line-length=88 --exclude=__pycache__
+
+      - name: Format check with black
+        run: black --check app/
+
+      - name: Import order check with isort
+        run: isort --check-only app/
+
+      - name: Type check with mypy
+        run: mypy app/ --ignore-missing-imports --strict
+
+    # ── STEP 5 — TESTS ──
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+
+      - name: Run unit tests
+        run: |
+          pytest app/tests/unit/ \
+            --cov=app \
+            --cov-report=xml \
+            -v
+
+      - name: Run integration tests (Postgres + Redis)
+        run: |
+          pytest app/tests/integration/ \
+            --cov=app \
+            --cov-append \
+            --cov-report=xml \
+            -v
+
+      - name: Run Celery task tests (eager mode)
+        env:
+          CELERY_TASK_ALWAYS_EAGER: "true"
+          CELERY_TASK_EAGER_PROPAGATES: "true"
+        run: |
+          pytest app/tests/celery/ \
+            --cov=app \
+            --cov-append \
+            --cov-report=xml \
+            -v
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+    # ── STEP 6 — SMOKE TEST ──
+      - name: Smoke test — app boots and /health passes
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 4
+          curl --fail http://localhost:8000/health || exit 1
+          kill %1
+
+    # ── STEP 7 — SECURITY SCAN ──
+      - name: Bandit — Python security scan
+        run: |
+          pip install bandit
+          bandit -r app/ -ll
+
+      - name: Safety — dependency CVE check
+        run: |
+          pip install safety
+          safety check -r requirements.txt
+
+      - name: Trivy — filesystem vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+    # ── STEP 8 — DOCKER BUILD & PUSH ──
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            myorg/backend:${{ github.ref_name }}
+            myorg/backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+    # ── STEP 9 — NOTIFY (GitHub native only) ──
+
+      # Posts a summary to the GitHub Actions run page
+      - name: Write job summary on success
+        if: success()
+        run: |
+          echo "## ✅ CI Passed" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image** | myorg/backend:${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Write job summary on failure
+        if: failure()
+        run: |
+          echo "## ❌ CI Failed" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Check logs** | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} |" >> $GITHUB_STEP_SUMMARY
