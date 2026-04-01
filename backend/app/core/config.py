@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     app_name: str = Field(default="ZTA-AI")
     environment: str = Field(default="development")
-    api_host: str = Field(default="0.0.0.0")
+    api_host: str = Field(default="127.0.0.1")
     api_port: int = Field(default=8000)
 
     database_url: str = Field(
