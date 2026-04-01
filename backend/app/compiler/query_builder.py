@@ -6,7 +6,9 @@ from app.schemas.pipeline import CompiledQueryPlan, InterpretedIntent, ScopeCont
 
 
 class QueryBuilder:
-    def build(self, scope: ScopeContext, intent: InterpretedIntent) -> CompiledQueryPlan:
+    def build(
+        self, scope: ScopeContext, intent: InterpretedIntent
+    ) -> CompiledQueryPlan:
         slot_map = {f"SLOT_{idx + 1}": key for idx, key in enumerate(intent.slot_keys)}
 
         filters: dict[str, object] = {
@@ -44,7 +46,9 @@ class QueryBuilder:
         if "course_ids" in filters:
             signature_parts.append("course_id IN (:course_ids)")
 
-        source_type = "ipeds_claims" if scope.tenant_id == IPEDS_TENANT_ID else "mock_claims"
+        source_type = (
+            "ipeds_claims" if scope.tenant_id == IPEDS_TENANT_ID else "mock_claims"
+        )
 
         return CompiledQueryPlan(
             tenant_id=scope.tenant_id,
@@ -54,7 +58,8 @@ class QueryBuilder:
             select_claim_keys=intent.slot_keys,
             filters=filters,
             slot_map=slot_map,
-            requires_aggregate=scope.aggregate_only or bool(intent.aggregation == "aggregate"),
+            requires_aggregate=scope.aggregate_only
+            or bool(intent.aggregation == "aggregate"),
             parameterized_signature=" AND ".join(signature_parts),
         )
 

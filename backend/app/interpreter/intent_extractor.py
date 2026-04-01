@@ -33,7 +33,15 @@ INTENT_RULES: tuple[IntentRule, ...] = (
         domain="campus",
         entity_type="institution_demographics",
         slot_keys=("hbcu_count", "public_count", "private_count", "total_institutions"),
-        keywords=("hbcu", "public", "private", "demographics", "sector", "control", "type"),
+        keywords=(
+            "hbcu",
+            "public",
+            "private",
+            "demographics",
+            "sector",
+            "control",
+            "type",
+        ),
         requires_aggregation=True,
     ),
     IntentRule(
@@ -41,7 +49,14 @@ INTENT_RULES: tuple[IntentRule, ...] = (
         domain="campus",
         entity_type="institution_enrollment_summary",
         slot_keys=("total_enrollment", "institution_count"),
-        keywords=("enrollment", "enrolment", "headcount", "student count", "students", "enrolled"),
+        keywords=(
+            "enrollment",
+            "enrolment",
+            "headcount",
+            "student count",
+            "students",
+            "enrolled",
+        ),
         requires_aggregation=True,
     ),
     IntentRule(
@@ -57,7 +72,13 @@ INTENT_RULES: tuple[IntentRule, ...] = (
         domain="admissions",
         entity_type="admin_function_summary",
         slot_keys=("function_metric", "record_count"),
-        keywords=("admission", "admissions", "applicant", "applicants", "open admission"),
+        keywords=(
+            "admission",
+            "admissions",
+            "applicant",
+            "applicants",
+            "open admission",
+        ),
         requires_aggregation=True,
     ),
     IntentRule(
@@ -65,7 +86,14 @@ INTENT_RULES: tuple[IntentRule, ...] = (
         domain="admin",
         entity_type="institution_catalog",
         slot_keys=("profile",),
-        keywords=("institution profile", "university profile", "college profile", "school profile", "info", "details"),
+        keywords=(
+            "institution profile",
+            "university profile",
+            "college profile",
+            "school profile",
+            "info",
+            "details",
+        ),
         requires_aggregation=False,
     ),
     # Student-level data (requires tenant's own database, not IPEDS)
@@ -176,8 +204,13 @@ def extract_intent(
     if rule is None:
         if persona_type == "executive":
             # For executives, default to enrollment overview or KPI
-            if any(kw in lower_prompt for kw in ("enrollment", "enrolment", "headcount", "student count")):
-                rule = next(r for r in INTENT_RULES if r.name == "executive_enrollment_overview")
+            if any(
+                kw in lower_prompt
+                for kw in ("enrollment", "enrolment", "headcount", "student count")
+            ):
+                rule = next(
+                    r for r in INTENT_RULES if r.name == "executive_enrollment_overview"
+                )
             else:
                 rule = next(r for r in INTENT_RULES if r.name == "executive_kpi")
         else:

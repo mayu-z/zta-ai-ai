@@ -31,8 +31,12 @@ def _b64url_decode(data: str) -> bytes:
 
 def _encode_fallback(payload: dict[str, Any], secret: str) -> str:
     header = {"alg": "HS256", "typ": "JWT"}
-    header_part = _b64url_encode(json.dumps(header, separators=(",", ":"), ensure_ascii=True).encode("utf-8"))
-    payload_part = _b64url_encode(json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8"))
+    header_part = _b64url_encode(
+        json.dumps(header, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    )
+    payload_part = _b64url_encode(
+        json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    )
     signing_input = f"{header_part}.{payload_part}".encode("ascii")
     signature = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
     return f"{header_part}.{payload_part}.{_b64url_encode(signature)}"
@@ -49,36 +53,54 @@ def _decode_fallback(token: str, secret: str) -> dict[str, Any]:
         header = json.loads(_b64url_decode(header_raw).decode("utf-8"))
         payload = json.loads(_b64url_decode(payload_raw).decode("utf-8"))
     except Exception as exc:  # noqa: BLE001
-        raise AuthenticationError(message="Token decode failed", code="INVALID_TOKEN") from exc
+        raise AuthenticationError(
+            message="Token decode failed", code="INVALID_TOKEN"
+        ) from exc
 
     if header.get("alg") != "HS256":
-        raise AuthenticationError(message="Token algorithm not allowed", code="TOKEN_ALG_REJECTED")
+        raise AuthenticationError(
+            message="Token algorithm not allowed", code="TOKEN_ALG_REJECTED"
+        )
 
     signing_input = f"{header_raw}.{payload_raw}".encode("ascii")
-    expected_sig = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    expected_sig = hmac.new(
+        secret.encode("utf-8"), signing_input, hashlib.sha256
+    ).digest()
 
     if not hmac.compare_digest(expected_sig, _b64url_decode(sig_raw)):
-        raise AuthenticationError(message="Invalid token signature", code="INVALID_TOKEN")
+        raise AuthenticationError(
+            message="Invalid token signature", code="INVALID_TOKEN"
+        )
 
     now_ts = int(utc_now().timestamp())
     exp = int(payload.get("exp", 0))
     iat = int(payload.get("iat", 0))
     if exp <= now_ts or iat <= 0:
-        raise AuthenticationError(message="Invalid or expired token", code="INVALID_TOKEN")
+        raise AuthenticationError(
+            message="Invalid or expired token", code="INVALID_TOKEN"
+        )
 
     return payload
 
 
-def create_access_token(payload: dict[str, Any], expires_minutes: int | None = None) -> str:
+def create_access_token(
+    payload: dict[str, Any], expires_minutes: int | None = None
+) -> str:
     settings = get_settings()
     token_payload = dict(payload)
-    exp_minutes = expires_minutes if expires_minutes is not None else settings.jwt_exp_minutes
+    exp_minutes = (
+        expires_minutes if expires_minutes is not None else settings.jwt_exp_minutes
+    )
     issued_at = utc_now()
     expires_at = issued_at + timedelta(minutes=exp_minutes)
-    token_payload.update({"iat": int(issued_at.timestamp()), "exp": int(expires_at.timestamp())})
+    token_payload.update(
+        {"iat": int(issued_at.timestamp()), "exp": int(expires_at.timestamp())}
+    )
 
     if jwt is not None:
-        return jwt.encode(token_payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+        return jwt.encode(
+            token_payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+        )
     return _encode_fallback(token_payload, settings.jwt_secret_key)
 
 
@@ -94,7 +116,9 @@ def decode_access_token(token: str) -> dict[str, Any]:
                 options={"require": ["exp", "iat"]},
             )
         except Exception as exc:  # noqa: BLE001
-            raise AuthenticationError(message="Invalid or expired token", code="INVALID_TOKEN") from exc
+            raise AuthenticationError(
+                message="Invalid or expired token", code="INVALID_TOKEN"
+            ) from exc
 
         return decoded
 

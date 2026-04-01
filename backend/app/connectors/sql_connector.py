@@ -19,7 +19,9 @@ class SQLConnector(ConnectorBase):
 
     def __init__(self, connection_url: str) -> None:
         self.connection_url = connection_url
-        self.engine = create_engine(self.connection_url, future=True, pool_pre_ping=True)
+        self.engine = create_engine(
+            self.connection_url, future=True, pool_pre_ping=True
+        )
 
     def connect(self) -> None:
         with self.engine.connect() as conn:
@@ -36,7 +38,9 @@ class SQLConnector(ConnectorBase):
             return [dict(row) for row in rows]
 
     def execute_query(self, db: Session, plan: CompiledQueryPlan) -> dict[str, Any]:
-        raise NotImplementedError("SQLConnector.execute_query is adapter-specific and must be implemented per source")
+        raise NotImplementedError(
+            "SQLConnector.execute_query is adapter-specific and must be implemented per source"
+        )
 
     def sync(self) -> None:
         return None

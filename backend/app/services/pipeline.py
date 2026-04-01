@@ -67,7 +67,9 @@ class PipelineService:
             )
             raise
 
-    def process_query(self, db: Session, scope: ScopeContext, query_text: str) -> PipelineResult:
+    def process_query(
+        self, db: Session, scope: ScopeContext, query_text: str
+    ) -> PipelineResult:
         pipeline_id = str(uuid.uuid4())
         started = time.perf_counter()
         intent_hash = ""
@@ -84,7 +86,9 @@ class PipelineService:
 
         # Stage 0: Store user message in history
         with self._track_stage(pipeline_id, "history_user_message", 0):
-            history_service.append(scope.tenant_id, scope.user_id, scope.session_id, "user", query_text)
+            history_service.append(
+                scope.tenant_id, scope.user_id, scope.session_id, "user", query_text
+            )
 
         # Stage 0.5: Check for conversational queries (greetings, help, etc.)
         conversational = detect_conversational_query(query_text)
@@ -93,7 +97,13 @@ class PipelineService:
             response_text = conversational.response or "Hello! How can I help you?"
 
             # Store assistant response in history
-            history_service.append(scope.tenant_id, scope.user_id, scope.session_id, "assistant", response_text)
+            history_service.append(
+                scope.tenant_id,
+                scope.user_id,
+                scope.session_id,
+                "assistant",
+                response_text,
+            )
 
             # Emit pipeline completion for conversational query
             pipeline_monitor.emit_pipeline_complete(
@@ -113,10 +123,19 @@ class PipelineService:
         unclear = is_unclear_query(query_text)
         if unclear.is_conversational:
             latency_ms = int((time.perf_counter() - started) * 1000)
-            response_text = unclear.response or "I'm not sure what you're looking for. Could you please rephrase your question?"
+            response_text = (
+                unclear.response
+                or "I'm not sure what you're looking for. Could you please rephrase your question?"
+            )
 
             # Store assistant response in history
-            history_service.append(scope.tenant_id, scope.user_id, scope.session_id, "assistant", response_text)
+            history_service.append(
+                scope.tenant_id,
+                scope.user_id,
+                scope.session_id,
+                "assistant",
+                response_text,
+            )
 
             # Emit pipeline completion for unclear query
             pipeline_monitor.emit_pipeline_complete(
@@ -141,7 +160,10 @@ class PipelineService:
 
             # Stage 2: Intent cache check
             with self._track_stage(
-                pipeline_id, "intent_cache", 2, {"intent_hash": interpreter_output.intent_hash[:16]}
+                pipeline_id,
+                "intent_cache",
+                2,
+                {"intent_hash": interpreter_output.intent_hash[:16]},
             ):
                 template = interpreter_output.cached_template
                 cache_hit = template is not None
@@ -149,7 +171,9 @@ class PipelineService:
             # Stage 3: SLM render (conditional on cache miss)
             if not cache_hit:
                 with self._track_stage(pipeline_id, "slm_render", 3):
-                    template = slm_simulator.render_template(interpreter_output.intent, scope)
+                    template = slm_simulator.render_template(
+                        interpreter_output.intent, scope
+                    )
             else:
                 # Emit skipped event if cache hit
                 pipeline_monitor.emit_stage_event(
@@ -162,15 +186,21 @@ class PipelineService:
 
             # Stage 4: Output guard validation
             with self._track_stage(pipeline_id, "output_guard", 4):
-                output_guard.validate(template, interpreter_output.schema_real_identifiers)
+                output_guard.validate(
+                    template, interpreter_output.schema_real_identifiers
+                )
 
             # Stage 5: Compiler (query plan generation)
             with self._track_stage(pipeline_id, "compiler", 5):
-                compiled_query = compiler_service.compile_intent(scope, interpreter_output.intent)
+                compiled_query = compiler_service.compile_intent(
+                    scope, interpreter_output.intent
+                )
 
             # Stage 6: Policy authorization (handles IT Head non-admin blocking)
             with self._track_stage(pipeline_id, "policy_authorization", 6):
-                policy_engine.authorize(scope, interpreter_output.intent, compiled_query)
+                policy_engine.authorize(
+                    scope, interpreter_output.intent, compiled_query
+                )
 
             # Stage 7: Tool layer execution
             with self._track_stage(pipeline_id, "tool_execution", 7):
@@ -178,7 +208,9 @@ class PipelineService:
 
             # Stage 8: Field masking
             with self._track_stage(pipeline_id, "field_masking", 8):
-                masked_values, masked_fields_applied = policy_engine.apply_field_masking(values, scope.masked_fields)
+                masked_values, masked_fields_applied = (
+                    policy_engine.apply_field_masking(values, scope.masked_fields)
+                )
 
             # Stage 9: Detokenization
             with self._track_stage(pipeline_id, "detokenization", 9):
@@ -214,7 +246,13 @@ class PipelineService:
 
             # Stage 11: Store assistant message in history
             with self._track_stage(pipeline_id, "history_assistant_message", 11):
-                history_service.append(scope.tenant_id, scope.user_id, scope.session_id, "assistant", final_response)
+                history_service.append(
+                    scope.tenant_id,
+                    scope.user_id,
+                    scope.session_id,
+                    "assistant",
+                    final_response,
+                )
 
             # Stage 12: Audit logging
             with self._track_stage(pipeline_id, "audit_logging", 12):
@@ -272,7 +310,10 @@ class PipelineService:
 
             # Emit pipeline failure
             pipeline_monitor.emit_pipeline_complete(
-                pipeline_id=pipeline_id, status="error", total_duration_ms=latency_ms, final_message=exc.message
+                pipeline_id=pipeline_id,
+                status="error",
+                total_duration_ms=latency_ms,
+                final_message=exc.message,
             )
 
             raise

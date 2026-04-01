@@ -26,7 +26,15 @@ class MockClaimsConnector(ConnectorBase):
         return [
             {
                 "entity": "claim_store",
-                "fields": ["tenant_id", "domain", "entity_type", "owner_id", "department_id", "course_id", "claim_key"],
+                "fields": [
+                    "tenant_id",
+                    "domain",
+                    "entity_type",
+                    "owner_id",
+                    "department_id",
+                    "course_id",
+                    "claim_key",
+                ],
             }
         ]
 
@@ -58,7 +66,9 @@ class MockClaimsConnector(ConnectorBase):
 
         rows = db.scalars(stmt).all()
         if not rows:
-            raise ValidationError(message="No claims matched this scoped query", code="NO_CLAIMS_FOUND")
+            raise ValidationError(
+                message="No claims matched this scoped query", code="NO_CLAIMS_FOUND"
+            )
 
         grouped: dict[str, list[Any]] = defaultdict(list)
         for row in rows:
@@ -76,12 +86,22 @@ class MockClaimsConnector(ConnectorBase):
             if plan.requires_aggregate and values:
                 if all(isinstance(v, (int, float)) for v in values if v is not None):
                     # Sum counts and totals, average everything else
-                    if (claim_key.endswith("count") or claim_key.startswith("count_") or 
-                        claim_key.startswith("total_") or claim_key.endswith("_total")):
-                        result[claim_key] = int(sum(v for v in values if isinstance(v, (int, float))))
+                    if (
+                        claim_key.endswith("count")
+                        or claim_key.startswith("count_")
+                        or claim_key.startswith("total_")
+                        or claim_key.endswith("_total")
+                    ):
+                        result[claim_key] = int(
+                            sum(v for v in values if isinstance(v, (int, float)))
+                        )
                     else:
-                        numeric_values = [float(v) for v in values if isinstance(v, (int, float))]
-                        result[claim_key] = round(sum(numeric_values) / max(len(numeric_values), 1), 2)
+                        numeric_values = [
+                            float(v) for v in values if isinstance(v, (int, float))
+                        ]
+                        result[claim_key] = round(
+                            sum(numeric_values) / max(len(numeric_values), 1), 2
+                        )
                 else:
                     result[claim_key] = values[0]
             else:

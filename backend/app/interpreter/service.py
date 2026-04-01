@@ -27,13 +27,19 @@ class InterpreterService:
                     code="STUDENT_SCOPE_BLOCKED",
                 )
 
-        if re.search(r"\b(all students|other students|another student)\b", prompt, flags=re.IGNORECASE):
+        if re.search(
+            r"\b(all students|other students|another student)\b",
+            prompt,
+            flags=re.IGNORECASE,
+        ):
             raise AuthorizationError(
                 message="Student scope violation: aggregate student access is not allowed",
                 code="STUDENT_SCOPE_BLOCKED",
             )
 
-    def _enforce_executive_aggregate_only(self, prompt: str, scope: ScopeContext) -> None:
+    def _enforce_executive_aggregate_only(
+        self, prompt: str, scope: ScopeContext
+    ) -> None:
         if scope.persona_type != "executive" or not scope.aggregate_only:
             return
 
@@ -61,7 +67,9 @@ class InterpreterService:
         detected_domains = detect_domains(sanitized_prompt)
         enforce_domain_gate(detected_domains, scope.allowed_domains)
 
-        aliased_prompt, real_identifiers = apply_schema_aliasing(db, scope.tenant_id, sanitized_prompt)
+        aliased_prompt, real_identifiers = apply_schema_aliasing(
+            db, scope.tenant_id, sanitized_prompt
+        )
 
         intent = extract_intent(
             raw_prompt=prompt,

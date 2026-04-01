@@ -20,9 +20,13 @@ class ToolLayerService:
         connector.connect()
         return connector.execute_query(db, plan)
 
-    def _get_data_sources(self, db: Session, plan: CompiledQueryPlan) -> dict[str, object]:
+    def _get_data_sources(
+        self, db: Session, plan: CompiledQueryPlan
+    ) -> dict[str, object]:
         tenant_id = plan.filters.get("tenant_id")
-        rows = db.scalars(select(DataSource).where(DataSource.tenant_id == tenant_id)).all()
+        rows = db.scalars(
+            select(DataSource).where(DataSource.tenant_id == tenant_id)
+        ).all()
         sources = [
             {
                 "id": row.id,
@@ -47,7 +51,11 @@ class ToolLayerService:
             {
                 "id": row.id,
                 "user_id": row.user_id,
-                "query_text": row.query_text[:50] + "..." if row.query_text and len(row.query_text) > 50 else row.query_text,
+                "query_text": (
+                    row.query_text[:50] + "..."
+                    if row.query_text and len(row.query_text) > 50
+                    else row.query_text
+                ),
                 "was_blocked": row.was_blocked,
                 "created_at": str(row.created_at) if row.created_at else None,
             }

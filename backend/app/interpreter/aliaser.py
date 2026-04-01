@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from app.db.models import FieldVisibility, SchemaField
 
 
-def apply_schema_aliasing(db: Session, tenant_id: str, prompt: str) -> tuple[str, list[str]]:
+def apply_schema_aliasing(
+    db: Session, tenant_id: str, prompt: str
+) -> tuple[str, list[str]]:
     schema_rows = db.scalars(
         select(SchemaField).where(
             SchemaField.tenant_id == tenant_id,

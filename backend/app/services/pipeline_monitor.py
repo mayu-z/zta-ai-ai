@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import  Any
+from typing import Any
 
 from app.core.redis_client import redis_client
 from app.schemas.pipeline_monitor import (
@@ -51,7 +51,8 @@ class PipelineMonitorService:
             started_at=datetime.now(tz=UTC),
         )
         self._publish(
-            pipeline_id, {"type": "pipeline_start", "data": metadata.model_dump(mode="json")}
+            pipeline_id,
+            {"type": "pipeline_start", "data": metadata.model_dump(mode="json")},
         )
 
     def emit_stage_event(

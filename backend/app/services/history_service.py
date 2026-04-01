@@ -11,7 +11,9 @@ class HistoryService:
         date_key = datetime.now(tz=UTC).strftime("%Y%m%d")
         return f"history:{tenant_id}:{user_id}:{session_id}:{date_key}"
 
-    def append(self, tenant_id: str, user_id: str, session_id: str, role: str, content: str) -> None:
+    def append(
+        self, tenant_id: str, user_id: str, session_id: str, role: str, content: str
+    ) -> None:
         key = self._key(tenant_id, user_id, session_id)
         payload = {
             "role": role,
@@ -21,7 +23,9 @@ class HistoryService:
         redis_client.client.rpush(key, json.dumps(payload, ensure_ascii=True))
         redis_client.client.expire(key, 24 * 60 * 60)
 
-    def read_recent(self, tenant_id: str, user_id: str, session_id: str, limit: int = 20) -> list[dict]:
+    def read_recent(
+        self, tenant_id: str, user_id: str, session_id: str, limit: int = 20
+    ) -> list[dict]:
         key = self._key(tenant_id, user_id, session_id)
         rows = redis_client.client.lrange(key, max(0, -limit), -1)
         output: list[dict] = []
@@ -34,4 +38,3 @@ class HistoryService:
 
 
 history_service = HistoryService()
-

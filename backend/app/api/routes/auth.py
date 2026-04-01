@@ -13,7 +13,14 @@ from app.core.redis_client import redis_client
 from app.core.security import create_access_token, decode_access_token
 from app.db.session import get_db
 from app.identity.service import identity_service
-from app.schemas.auth import AuthResponse, AuthUser, GoogleAuthRequest, LogoutResponse, RefreshRequest, RefreshResponse
+from app.schemas.auth import (
+    AuthResponse,
+    AuthUser,
+    GoogleAuthRequest,
+    LogoutResponse,
+    RefreshRequest,
+    RefreshResponse,
+)
 from app.schemas.pipeline import ScopeContext
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -22,8 +29,12 @@ settings = get_settings()
 
 
 @router.post("/google", response_model=AuthResponse)
-def auth_google(payload: GoogleAuthRequest, db: Session = Depends(get_db)) -> AuthResponse:
-    token, user, _scope = identity_service.authenticate_google(db=db, google_token=payload.google_token)
+def auth_google(
+    payload: GoogleAuthRequest, db: Session = Depends(get_db)
+) -> AuthResponse:
+    token, user, _scope = identity_service.authenticate_google(
+        db=db, google_token=payload.google_token
+    )
     return AuthResponse(
         jwt=token,
         user=AuthUser(
@@ -46,9 +57,14 @@ def refresh_token(payload: RefreshRequest) -> RefreshResponse:
     refresh_window = settings.jwt_refresh_window_minutes * 60
 
     if seconds_left <= 0:
-        raise AuthenticationError(message="Token is already expired", code="TOKEN_EXPIRED")
+        raise AuthenticationError(
+            message="Token is already expired", code="TOKEN_EXPIRED"
+        )
     if seconds_left > refresh_window:
-        raise AuthenticationError(message="Token is not eligible for refresh yet", code="TOKEN_REFRESH_TOO_EARLY")
+        raise AuthenticationError(
+            message="Token is not eligible for refresh yet",
+            code="TOKEN_REFRESH_TOO_EARLY",
+        )
 
     stripped = {k: v for k, v in decoded.items() if k not in {"exp", "iat"}}
     refreshed = create_access_token(stripped)

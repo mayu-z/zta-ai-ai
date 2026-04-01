@@ -17,7 +17,9 @@ router = APIRouter(prefix="/admin/pipeline", tags=["pipeline-monitor"])
 
 
 @router.websocket("/monitor")
-async def monitor_pipeline(websocket: WebSocket, token: str = Query(default="")) -> None:
+async def monitor_pipeline(
+    websocket: WebSocket, token: str = Query(default="")
+) -> None:
     """
     WebSocket endpoint for IT HEAD to monitor pipeline executions in real-time.
 

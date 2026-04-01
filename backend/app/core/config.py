@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
 
-    database_url: str = Field(default="postgresql+psycopg2://zta:zta@localhost:5432/zta_ai")
+    database_url: str = Field(
+        default="postgresql+psycopg2://zta:zta@localhost:5432/zta_ai"
+    )
     redis_url: str = Field(default="redis://localhost:6379/0")
 
     jwt_secret_key: str = Field(default="change-me")

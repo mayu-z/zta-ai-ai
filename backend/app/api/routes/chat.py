@@ -20,19 +20,31 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.get("/suggestions", response_model=list[ChatSuggestion])
-def suggestions(scope: ScopeContext = Depends(get_current_scope)) -> list[ChatSuggestion]:
+def suggestions(
+    scope: ScopeContext = Depends(get_current_scope),
+) -> list[ChatSuggestion]:
     values = suggestion_service.suggestions_for(scope.persona_type)
-    return [ChatSuggestion(id=f"q{idx + 1}", text=text) for idx, text in enumerate(values)]
+    return [
+        ChatSuggestion(id=f"q{idx + 1}", text=text) for idx, text in enumerate(values)
+    ]
 
 
 @router.get("/history", response_model=list[ChatHistoryItem])
 def history(scope: ScopeContext = Depends(get_current_scope)) -> list[ChatHistoryItem]:
-    rows = history_service.read_recent(scope.tenant_id, scope.user_id, scope.session_id, limit=20)
+    rows = history_service.read_recent(
+        scope.tenant_id, scope.user_id, scope.session_id, limit=20
+    )
     response: list[ChatHistoryItem] = []
     for row in rows:
         created_at = row.get("created_at")
         parsed = datetime.fromisoformat(created_at) if created_at else datetime.utcnow()
-        response.append(ChatHistoryItem(role=row.get("role", "assistant"), content=row.get("content", ""), created_at=parsed))
+        response.append(
+            ChatHistoryItem(
+                role=row.get("role", "assistant"),
+                content=row.get("content", ""),
+                created_at=parsed,
+            )
+        )
     return response
 
 
@@ -42,14 +54,18 @@ async def stream_chat(websocket: WebSocket, token: str = Query(default="")) -> N
     db = SessionLocal()
     try:
         if not token:
-            await websocket.send_json(TokenFrame(type="error", message="Missing token").model_dump())
+            await websocket.send_json(
+                TokenFrame(type="error", message="Missing token").model_dump()
+            )
             await websocket.close(code=1008)
             return
 
         try:
             scope = get_scope_from_token(db=db, token=token)
         except ZTAError as exc:
-            await websocket.send_json(TokenFrame(type="error", message=exc.message).model_dump())
+            await websocket.send_json(
+                TokenFrame(type="error", message=exc.message).model_dump()
+            )
             await websocket.close(code=1008)
             return
 
@@ -57,17 +73,23 @@ async def stream_chat(websocket: WebSocket, token: str = Query(default="")) -> N
             payload = await websocket.receive_json()
             query_text = str(payload.get("query", "")).strip()
             if not query_text:
-                await websocket.send_json(TokenFrame(type="error", message="Query is required").model_dump())
+                await websocket.send_json(
+                    TokenFrame(type="error", message="Query is required").model_dump()
+                )
                 continue
 
             try:
                 rate_limiter_service.check_and_increment(scope.tenant_id, scope.user_id)
-                result = pipeline_service.process_query(db=db, scope=scope, query_text=query_text)
+                result = pipeline_service.process_query(
+                    db=db, scope=scope, query_text=query_text
+                )
 
                 for token_part in result.response_text.split(" "):
                     if not token_part:
                         continue
-                    await websocket.send_json(TokenFrame(type="token", content=f"{token_part} ").model_dump())
+                    await websocket.send_json(
+                        TokenFrame(type="token", content=f"{token_part} ").model_dump()
+                    )
                     await asyncio.sleep(0.015)
 
                 await websocket.send_json(
@@ -78,7 +100,9 @@ async def stream_chat(websocket: WebSocket, token: str = Query(default="")) -> N
                     ).model_dump()
                 )
             except ZTAError as exc:
-                await websocket.send_json(TokenFrame(type="error", message=exc.message).model_dump())
+                await websocket.send_json(
+                    TokenFrame(type="error", message=exc.message).model_dump()
+                )
     except WebSocketDisconnect:
         return
     finally:

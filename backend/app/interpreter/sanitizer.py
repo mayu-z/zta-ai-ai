@@ -4,7 +4,6 @@ import re
 
 from app.core.exceptions import ValidationError
 
-
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+previous\s+instructions", re.IGNORECASE),
     re.compile(r"disregard\s+all\s+above", re.IGNORECASE),
@@ -34,7 +33,9 @@ def sanitize_prompt(prompt: str) -> tuple[str, list[str]]:
 
     sanitized = re.sub(r"[\x00-\x1F\x7F]", "", sanitized).strip()
     if not sanitized:
-        raise ValidationError(message="Prompt became empty after sanitization", code="PROMPT_BLOCKED")
+        raise ValidationError(
+            message="Prompt became empty after sanitization", code="PROMPT_BLOCKED"
+        )
 
     if len(sanitized) > 500:
         sanitized = sanitized[:500]

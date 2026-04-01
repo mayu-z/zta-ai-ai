@@ -8,7 +8,9 @@ from app.schemas.pipeline import InterpretedIntent, ScopeContext
 
 try:
     from openai import OpenAI
-except ImportError:  # pragma: no cover - handled at runtime when dependency is unavailable
+except (
+    ImportError
+):  # pragma: no cover - handled at runtime when dependency is unavailable
     OpenAI = None
 
 
@@ -67,12 +69,19 @@ class SLMSimulator:
         # Fall back to SLM generation for unknown intents
         if self.settings.slm_provider.lower() != "nvidia":
             # If no SLM and no predefined template, use a generic fallback
-            slots = " and ".join(f"[SLOT_{idx + 1}]" for idx in range(len(intent.slot_keys))) or "[SLOT_1]"
+            slots = (
+                " and ".join(
+                    f"[SLOT_{idx + 1}]" for idx in range(len(intent.slot_keys))
+                )
+                or "[SLOT_1]"
+            )
             return f"The requested {intent.domain} data shows {slots}."
 
         return self._render_with_hosted_slm(intent, scope)
 
-    def _render_with_hosted_slm(self, intent: InterpretedIntent, scope: ScopeContext) -> str:
+    def _render_with_hosted_slm(
+        self, intent: InterpretedIntent, scope: ScopeContext
+    ) -> str:
         if not self.settings.slm_api_key or OpenAI is None:
             raise ValidationError(
                 message="Hosted SLM client is not available",
@@ -87,7 +96,13 @@ class SLMSimulator:
                     code="SLM_CLIENT_UNAVAILABLE",
                 )
 
-            slots = ", ".join(f"[SLOT_{idx + 1}] for {key}" for idx, key in enumerate(intent.slot_keys)) or "[SLOT_1]"
+            slots = (
+                ", ".join(
+                    f"[SLOT_{idx + 1}] for {key}"
+                    for idx, key in enumerate(intent.slot_keys)
+                )
+                or "[SLOT_1]"
+            )
             prompt = (
                 "You are an untrusted rendering model inside a zero-trust system. "
                 "Return exactly one short response template. "
@@ -118,7 +133,9 @@ class SLMSimulator:
                 stream=False,
             )
 
-            content = completion.choices[0].message.content if completion.choices else None
+            content = (
+                completion.choices[0].message.content if completion.choices else None
+            )
             if not content:
                 raise ValidationError(
                     message="Hosted SLM returned an empty template",

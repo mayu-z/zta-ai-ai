@@ -13,9 +13,23 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_scope
 from app.core.exceptions import AuthorizationError, ValidationError
 from app.core.redis_client import redis_client
-from app.db.models import AuditLog, DataSource, DataSourceStatus, DataSourceType, IntentCacheEntry, PersonaType, SchemaField, User, UserStatus
+from app.db.models import (
+    AuditLog,
+    DataSource,
+    DataSourceStatus,
+    DataSourceType,
+    IntentCacheEntry,
+    PersonaType,
+    SchemaField,
+    User,
+    UserStatus,
+)
 from app.db.session import get_db
-from app.schemas.admin import DataSourceCreateRequest, KillSwitchRequest, UserUpdateRequest
+from app.schemas.admin import (
+    DataSourceCreateRequest,
+    KillSwitchRequest,
+    UserUpdateRequest,
+)
 from app.schemas.pipeline import ScopeContext
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -23,7 +37,9 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 def require_it_head(scope: ScopeContext = Depends(get_current_scope)) -> ScopeContext:
     if scope.persona_type != "it_head":
-        raise AuthorizationError(message="Only IT Head can access admin endpoints", code="ADMIN_ONLY")
+        raise AuthorizationError(
+            message="Only IT Head can access admin endpoints", code="ADMIN_ONLY"
+        )
     return scope
 
 
@@ -95,12 +111,16 @@ async def import_users(
                 raise ValueError("Duplicate email in upload")
             seen_emails.add(email)
 
-            existing = db.scalar(select(User).where(User.tenant_id == scope.tenant_id, User.email == email))
+            existing = db.scalar(
+                select(User).where(
+                    User.tenant_id == scope.tenant_id, User.email == email
+                )
+            )
             if existing:
                 continue
 
             persona = (row.get("persona_type") or "student").strip().lower()
-            department = (row.get("department") or None)
+            department = row.get("department") or None
             external_id = (row.get("external_id") or "").strip()
             if not external_id:
                 raise ValueError("external_id is required")
@@ -113,7 +133,11 @@ async def import_users(
                 department=department,
                 external_id=external_id,
                 admin_function=(row.get("admin_function") or None),
-                course_ids=[c.strip() for c in (row.get("course_ids") or "").split(";") if c.strip()],
+                course_ids=[
+                    c.strip()
+                    for c in (row.get("course_ids") or "").split(";")
+                    if c.strip()
+                ],
                 masked_fields=[],
                 status=UserStatus.active,
             )
@@ -134,7 +158,9 @@ def update_user(
     scope: ScopeContext = Depends(require_it_head),
     db: Session = Depends(get_db),
 ):
-    user = db.scalar(select(User).where(User.id == user_id, User.tenant_id == scope.tenant_id))
+    user = db.scalar(
+        select(User).where(User.id == user_id, User.tenant_id == scope.tenant_id)
+    )
     if not user:
         raise ValidationError(message="User not found", code="USER_NOT_FOUND")
 
@@ -159,8 +185,12 @@ def update_user(
 
 
 @router.get("/data-sources")
-def list_data_sources(scope: ScopeContext = Depends(require_it_head), db: Session = Depends(get_db)):
-    rows = db.scalars(select(DataSource).where(DataSource.tenant_id == scope.tenant_id)).all()
+def list_data_sources(
+    scope: ScopeContext = Depends(require_it_head), db: Session = Depends(get_db)
+):
+    rows = db.scalars(
+        select(DataSource).where(DataSource.tenant_id == scope.tenant_id)
+    ).all()
     return [
         {
             "id": row.id,
@@ -179,7 +209,9 @@ def create_data_source(
     scope: ScopeContext = Depends(require_it_head),
     db: Session = Depends(get_db),
 ):
-    encoded_config = base64.b64encode(json.dumps(payload.config, ensure_ascii=True, sort_keys=True).encode("utf-8")).decode("utf-8")
+    encoded_config = base64.b64encode(
+        json.dumps(payload.config, ensure_ascii=True, sort_keys=True).encode("utf-8")
+    ).decode("utf-8")
     source = DataSource(
         tenant_id=scope.tenant_id,
         name=payload.name,
@@ -200,7 +232,11 @@ def create_data_source(
 
 
 @router.get("/data-sources/{source_id}/schema")
-def data_source_schema(source_id: str, scope: ScopeContext = Depends(require_it_head), db: Session = Depends(get_db)):
+def data_source_schema(
+    source_id: str,
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
     rows = db.scalars(
         select(SchemaField).where(
             SchemaField.tenant_id == scope.tenant_id,
@@ -244,7 +280,9 @@ def get_audit_log(
         stmt = stmt.where(AuditLog.created_at <= datetime.fromisoformat(end_date))
 
     offset = (page - 1) * limit
-    rows = db.scalars(stmt.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)).all()
+    rows = db.scalars(
+        stmt.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)
+    ).all()
 
     return {
         "page": page,
@@ -281,17 +319,32 @@ def kill_sessions(
 
     if payload.scope == "department":
         if not payload.target_id:
-            raise ValidationError(message="target_id is required for department scope", code="TARGET_REQUIRED")
-        redis_client.client.setex(f"kill:tenant:{scope.tenant_id}:department:{payload.target_id}", ttl_seconds, "1")
-        return {"scope": "department", "target_id": payload.target_id, "sessions_revoked": "department-wide"}
+            raise ValidationError(
+                message="target_id is required for department scope",
+                code="TARGET_REQUIRED",
+            )
+        redis_client.client.setex(
+            f"kill:tenant:{scope.tenant_id}:department:{payload.target_id}",
+            ttl_seconds,
+            "1",
+        )
+        return {
+            "scope": "department",
+            "target_id": payload.target_id,
+            "sessions_revoked": "department-wide",
+        }
 
     if payload.scope == "user":
         if not payload.target_id:
-            raise ValidationError(message="target_id is required for user scope", code="TARGET_REQUIRED")
+            raise ValidationError(
+                message="target_id is required for user scope", code="TARGET_REQUIRED"
+            )
         redis_client.client.setex(f"kill:user:{payload.target_id}", ttl_seconds, "1")
         return {"scope": "user", "target_id": payload.target_id, "sessions_revoked": 1}
 
-    raise ValidationError(message="scope must be one of: all, department, user", code="INVALID_SCOPE")
+    raise ValidationError(
+        message="scope must be one of: all, department, user", code="INVALID_SCOPE"
+    )
 
 
 @router.post("/cache/clear")
@@ -313,9 +366,11 @@ def clear_intent_cache(
             break
 
     # Clear from database
-    deleted_db = db.query(IntentCacheEntry).filter(
-        IntentCacheEntry.tenant_id == scope.tenant_id
-    ).delete()
+    deleted_db = (
+        db.query(IntentCacheEntry)
+        .filter(IntentCacheEntry.tenant_id == scope.tenant_id)
+        .delete()
+    )
     db.commit()
 
     return {
@@ -323,4 +378,3 @@ def clear_intent_cache(
         "cleared_db": deleted_db,
         "message": "Intent cache cleared successfully. New queries will use fresh templates.",
     }
-

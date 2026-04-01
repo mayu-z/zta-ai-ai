@@ -18,11 +18,15 @@ class IntentCacheService:
     def _redis_key(self, tenant_id: str, intent_hash: str) -> str:
         return f"intent:{tenant_id}:{intent_hash}"
 
-    def get(self, db: Session, tenant_id: str, intent_hash: str) -> dict[str, Any] | None:
+    def get(
+        self, db: Session, tenant_id: str, intent_hash: str
+    ) -> dict[str, Any] | None:
         redis_key = self._redis_key(tenant_id, intent_hash)
         cached = redis_client.get_json(redis_key)
         if cached:
-            redis_client.client.expire(redis_key, self.settings.intent_cache_ttl_seconds)
+            redis_client.client.expire(
+                redis_key, self.settings.intent_cache_ttl_seconds
+            )
             return cached
 
         row = db.scalar(
@@ -47,7 +51,9 @@ class IntentCacheService:
             "response_template": row.response_template,
             "compiled_query": row.compiled_query,
         }
-        redis_client.set_json(redis_key, payload, self.settings.intent_cache_ttl_seconds)
+        redis_client.set_json(
+            redis_key, payload, self.settings.intent_cache_ttl_seconds
+        )
         return payload
 
     def set(
@@ -59,9 +65,13 @@ class IntentCacheService:
         response_template: str,
         compiled_query: dict[str, Any],
     ) -> None:
-        expires_at = datetime.now(tz=UTC) + timedelta(seconds=self.settings.intent_cache_ttl_seconds)
+        expires_at = datetime.now(tz=UTC) + timedelta(
+            seconds=self.settings.intent_cache_ttl_seconds
+        )
 
-        row = db.scalar(select(IntentCacheEntry).where(IntentCacheEntry.intent_hash == intent_hash))
+        row = db.scalar(
+            select(IntentCacheEntry).where(IntentCacheEntry.intent_hash == intent_hash)
+        )
         if row:
             row.response_template = response_template
             row.compiled_query = compiled_query
@@ -85,7 +95,11 @@ class IntentCacheService:
             "response_template": response_template,
             "compiled_query": compiled_query,
         }
-        redis_client.set_json(self._redis_key(tenant_id, intent_hash), redis_payload, self.settings.intent_cache_ttl_seconds)
+        redis_client.set_json(
+            self._redis_key(tenant_id, intent_hash),
+            redis_payload,
+            self.settings.intent_cache_ttl_seconds,
+        )
 
 
 intent_cache_service = IntentCacheService()

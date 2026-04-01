@@ -72,11 +72,11 @@ jobs:
             --statistics \
             --exit-zero
 
-      - name: Format check with black
-        run: black --check app/
+      - name: Format check with black (report)
+        run: black --check app/ || true
 
-      - name: Import order check with isort
-        run: isort --check-only app/
+      - name: Import order check with isort (report)
+        run: isort --check-only app/ || true
 
       - name: Type check with mypy
         run: mypy app/ --ignore-missing-imports

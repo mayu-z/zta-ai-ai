@@ -21,7 +21,11 @@ class Detokenizer:
             if isinstance(value[0], dict):
                 items = []
                 for item in value[:5]:  # Limit to 5 items
-                    name = item.get("name") or item.get("query_text") or item.get("id", "item")
+                    name = (
+                        item.get("name")
+                        or item.get("query_text")
+                        or item.get("id", "item")
+                    )
                     status = item.get("status") or item.get("was_blocked")
                     if status is not None:
                         items.append(f"{name} ({status})")
@@ -45,7 +49,9 @@ class Detokenizer:
     ) -> str:
         rendered = template
         for slot_name, claim_key in query_plan.slot_map.items():
-            rendered = rendered.replace(f"[{slot_name}]", self._format_value(values.get(claim_key)))
+            rendered = rendered.replace(
+                f"[{slot_name}]", self._format_value(values.get(claim_key))
+            )
 
         as_of = datetime.now().strftime("%d-%m-%Y")
         rendered = f"{rendered} As of {as_of}."

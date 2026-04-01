@@ -4,7 +4,6 @@ import re
 
 from app.core.exceptions import AuthorizationError
 
-
 # Explicit domain keywords - these definitively identify a domain
 DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "academic": (
@@ -19,16 +18,61 @@ DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
         "result",
         "class",
     ),
-    "finance": ("fee", "payment", "budget", "revenue", "p&l", "salary", "payroll", "invoice"),
+    "finance": (
+        "fee",
+        "payment",
+        "budget",
+        "revenue",
+        "p&l",
+        "salary",
+        "payroll",
+        "invoice",
+    ),
     "hr": ("leave", "faculty record", "employee", "payslip", "attrition"),
-    "admissions": ("admission", "admissions", "applicant", "applicants", "open admission"),
+    "admissions": (
+        "admission",
+        "admissions",
+        "applicant",
+        "applicants",
+        "open admission",
+    ),
     "department": ("department", "dept", "faculty performance"),
-    "campus": ("cross campus", "campus aggregate", "enrollment", "enrolment", "enrolled", "headcount", "institution", "hbcu", "sector", "public", "private", "demographics", "size distribution", "size", "students"),
-    "admin": ("audit", "schema", "connector", "kill switch", "data-sources", "audit-log"),
+    "campus": (
+        "cross campus",
+        "campus aggregate",
+        "enrollment",
+        "enrolment",
+        "enrolled",
+        "headcount",
+        "institution",
+        "hbcu",
+        "sector",
+        "public",
+        "private",
+        "demographics",
+        "size distribution",
+        "size",
+        "students",
+    ),
+    "admin": (
+        "audit",
+        "schema",
+        "connector",
+        "kill switch",
+        "data-sources",
+        "audit-log",
+    ),
 }
 
 # Modifier keywords - only trigger campus domain when no explicit domain is found
-AGGREGATION_MODIFIERS: tuple[str, ...] = ("kpi", "aggregate", "summary", "trend", "overview", "metrics")
+AGGREGATION_MODIFIERS: tuple[str, ...] = (
+    "kpi",
+    "aggregate",
+    "summary",
+    "trend",
+    "overview",
+    "metrics",
+)
 
 
 def normalize_domain(domain: str) -> str:
@@ -51,7 +95,8 @@ def detect_domains(prompt: str) -> list[str]:
     # Second pass: if no explicit domain found but aggregation modifiers present, default to campus
     if not detected:
         has_aggregation_modifier = any(
-            re.search(rf"\b{re.escape(mod)}\b", lower_prompt) for mod in AGGREGATION_MODIFIERS
+            re.search(rf"\b{re.escape(mod)}\b", lower_prompt)
+            for mod in AGGREGATION_MODIFIERS
         )
         if has_aggregation_modifier:
             detected = ["campus"]
@@ -66,8 +111,14 @@ def is_domain_allowed(domain: str, allowed_domains: list[str]) -> bool:
     return any(normalize_domain(allowed) == canonical for allowed in allowed_domains)
 
 
-def enforce_domain_gate(detected_domains: list[str], allowed_domains: list[str]) -> None:
-    blocked = [domain for domain in detected_domains if not is_domain_allowed(domain, allowed_domains)]
+def enforce_domain_gate(
+    detected_domains: list[str], allowed_domains: list[str]
+) -> None:
+    blocked = [
+        domain
+        for domain in detected_domains
+        if not is_domain_allowed(domain, allowed_domains)
+    ]
     if blocked:
         raise AuthorizationError(
             message=f"Domain gate blocked out-of-scope domains: {', '.join(blocked)}",

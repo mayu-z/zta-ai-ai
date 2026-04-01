@@ -14,7 +14,6 @@ from app.db.models import Tenant, TenantStatus, User, UserStatus
 from app.db.session import get_db
 from app.schemas.pipeline import ScopeContext
 
-
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -24,11 +23,19 @@ def _ensure_not_killed(scope: ScopeContext) -> None:
     user_key = f"kill:user:{scope.user_id}"
 
     if redis_client.client.exists(tenant_key):
-        raise AuthorizationError(message="Tenant sessions are currently revoked by IT head", code="TENANT_KILL_SWITCH")
+        raise AuthorizationError(
+            message="Tenant sessions are currently revoked by IT head",
+            code="TENANT_KILL_SWITCH",
+        )
     if scope.department and redis_client.client.exists(dept_key):
-        raise AuthorizationError(message="Department sessions are currently revoked", code="DEPARTMENT_KILL_SWITCH")
+        raise AuthorizationError(
+            message="Department sessions are currently revoked",
+            code="DEPARTMENT_KILL_SWITCH",
+        )
     if redis_client.client.exists(user_key):
-        raise AuthorizationError(message="User session is currently revoked", code="USER_KILL_SWITCH")
+        raise AuthorizationError(
+            message="User session is currently revoked", code="USER_KILL_SWITCH"
+        )
 
 
 def get_scope_from_token(db: Session, token: str) -> ScopeContext:
@@ -36,14 +43,22 @@ def get_scope_from_token(db: Session, token: str) -> ScopeContext:
 
     jti = payload.get("jti")
     if jti and redis_client.client.exists(f"deny:{jti}"):
-        raise AuthenticationError(message="Session has been logged out", code="TOKEN_REVOKED")
+        raise AuthenticationError(
+            message="Session has been logged out", code="TOKEN_REVOKED"
+        )
 
     user_id = str(payload.get("sub"))
     tenant_id = str(payload.get("tenant_id"))
 
-    tenant = db.scalar(select(Tenant).where(Tenant.id == tenant_id, Tenant.status == TenantStatus.active))
+    tenant = db.scalar(
+        select(Tenant).where(
+            Tenant.id == tenant_id, Tenant.status == TenantStatus.active
+        )
+    )
     if not tenant:
-        raise AuthenticationError(message="Tenant is invalid or inactive", code="TENANT_INVALID")
+        raise AuthenticationError(
+            message="Tenant is invalid or inactive", code="TENANT_INVALID"
+        )
 
     user = db.scalar(
         select(User).where(
@@ -53,7 +68,9 @@ def get_scope_from_token(db: Session, token: str) -> ScopeContext:
         )
     )
     if not user:
-        raise AuthenticationError(message="User account is invalid or inactive", code="USER_INVALID")
+        raise AuthenticationError(
+            message="User account is invalid or inactive", code="USER_INVALID"
+        )
 
     scope = ScopeContext(
         tenant_id=tenant_id,

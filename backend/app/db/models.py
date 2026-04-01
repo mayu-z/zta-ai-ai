@@ -95,19 +95,31 @@ class Tenant(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     domain: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     subdomain: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    plan_tier: Mapped[PlanTier] = mapped_column(Enum(PlanTier), nullable=False, default=PlanTier.starter)
-    status: Mapped[TenantStatus] = mapped_column(Enum(TenantStatus), nullable=False, default=TenantStatus.active)
-    google_workspace_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+    plan_tier: Mapped[PlanTier] = mapped_column(
+        Enum(PlanTier), nullable=False, default=PlanTier.starter
+    )
+    status: Mapped[TenantStatus] = mapped_column(
+        Enum(TenantStatus), nullable=False, default=TenantStatus.active
+    )
+    google_workspace_domain: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
 
-    users: Mapped[list["User"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+    users: Mapped[list["User"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
 
 
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(String(36), ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     persona_type: Mapped[PersonaType] = mapped_column(Enum(PersonaType), nullable=False)
@@ -116,9 +128,15 @@ class User(Base):
     admin_function: Mapped[str | None] = mapped_column(String(100), nullable=True)
     course_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     masked_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    status: Mapped[UserStatus] = mapped_column(Enum(UserStatus), nullable=False, default=UserStatus.active)
-    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus), nullable=False, default=UserStatus.active
+    )
+    last_login: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
 
     tenant: Mapped[Tenant] = relationship(back_populates="users")
 
@@ -130,41 +148,68 @@ class DataSource(Base):
     __tablename__ = "data_sources"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(String(36), ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    source_type: Mapped[DataSourceType] = mapped_column(Enum(DataSourceType), nullable=False)
+    source_type: Mapped[DataSourceType] = mapped_column(
+        Enum(DataSourceType), nullable=False
+    )
     config_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
-    department_scope: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    status: Mapped[DataSourceStatus] = mapped_column(Enum(DataSourceStatus), nullable=False, default=DataSourceStatus.connected)
-    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    department_scope: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    status: Mapped[DataSourceStatus] = mapped_column(
+        Enum(DataSourceStatus), nullable=False, default=DataSourceStatus.connected
+    )
+    last_sync_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     sync_error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
 
 
 class SchemaField(Base):
     __tablename__ = "schema_fields"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    data_source_id: Mapped[str] = mapped_column(String(36), ForeignKey("data_sources.id"), nullable=False)
-    tenant_id: Mapped[str] = mapped_column(String(36), ForeignKey("tenants.id"), nullable=False)
+    data_source_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("data_sources.id"), nullable=False
+    )
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
     real_table: Mapped[str] = mapped_column(String(255), nullable=False)
     real_column: Mapped[str] = mapped_column(String(255), nullable=False)
     alias_token: Mapped[str] = mapped_column(String(50), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     data_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    visibility: Mapped[FieldVisibility] = mapped_column(Enum(FieldVisibility), nullable=False, default=FieldVisibility.visible)
+    visibility: Mapped[FieldVisibility] = mapped_column(
+        Enum(FieldVisibility), nullable=False, default=FieldVisibility.visible
+    )
     pii_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    masked_for_personas: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    masked_for_personas: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
 
 
-Index("ix_schema_fields_tenant_alias", SchemaField.tenant_id, SchemaField.alias_token, unique=False)
+Index(
+    "ix_schema_fields_tenant_alias",
+    SchemaField.tenant_id,
+    SchemaField.alias_token,
+    unique=False,
+)
 
 
 class Claim(Base):
     __tablename__ = "claims"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(String(36), ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
     domain: Mapped[str] = mapped_column(String(50), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_id: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -177,13 +222,27 @@ class Claim(Base):
     value_number: Mapped[float | None] = mapped_column(Float, nullable=True)
     value_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    provenance: Mapped[str] = mapped_column(String(255), nullable=False, default="mock-source")
-    sensitivity: Mapped[ClaimSensitivity] = mapped_column(Enum(ClaimSensitivity), nullable=False, default=ClaimSensitivity.internal)
-    compliance_tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+    provenance: Mapped[str] = mapped_column(
+        String(255), nullable=False, default="mock-source"
+    )
+    sensitivity: Mapped[ClaimSensitivity] = mapped_column(
+        Enum(ClaimSensitivity), nullable=False, default=ClaimSensitivity.internal
+    )
+    compliance_tags: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
 
 
-Index("ix_claims_tenant_domain_entity", Claim.tenant_id, Claim.domain, Claim.entity_type, unique=False)
+Index(
+    "ix_claims_tenant_domain_entity",
+    Claim.tenant_id,
+    Claim.domain,
+    Claim.entity_type,
+    unique=False,
+)
 Index("ix_claims_owner_course", Claim.owner_id, Claim.course_id, unique=False)
 
 
@@ -191,33 +250,52 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(String(36), ForeignKey("tenants.id"), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
     session_id: Mapped[str] = mapped_column(String(36), nullable=False)
     query_text: Mapped[str] = mapped_column(Text, nullable=False)
     intent_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    domains_accessed: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    domains_accessed: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
     was_blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     block_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
     response_summary: Mapped[str] = mapped_column(Text, nullable=False)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
 
 
 class IntentCacheEntry(Base):
     __tablename__ = "intent_cache"
 
     intent_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    tenant_id: Mapped[str] = mapped_column(String(36), ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
     normalized_intent: Mapped[dict] = mapped_column(JSON, nullable=False)
     response_template: Mapped[str] = mapped_column(Text, nullable=False)
     compiled_query: Mapped[dict] = mapped_column(JSON, nullable=False)
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
 
 
-Index("ix_intent_cache_tenant_hash", IntentCacheEntry.tenant_id, IntentCacheEntry.intent_hash, unique=False)
+Index(
+    "ix_intent_cache_tenant_hash",
+    IntentCacheEntry.tenant_id,
+    IntentCacheEntry.intent_hash,
+    unique=False,
+)
 
 
 def _raise_append_only(*_: object, **__: object) -> None:

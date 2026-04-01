@@ -21,7 +21,17 @@ class GoogleIdentity:
     name: str
 
 
-ALL_DOMAINS = ["academic", "finance", "hr", "admissions", "exam", "department", "campus", "admin", "notices"]
+ALL_DOMAINS = [
+    "academic",
+    "finance",
+    "hr",
+    "admissions",
+    "exam",
+    "department",
+    "campus",
+    "admin",
+    "notices",
+]
 
 
 class IdentityService:
@@ -33,7 +43,9 @@ class IdentityService:
             prefix = self.settings.mock_google_token_prefix
             if google_token.startswith(prefix):
                 email = google_token[len(prefix) :].strip().lower()
-                return GoogleIdentity(email=email, name=email.split("@")[0].replace(".", " ").title())
+                return GoogleIdentity(
+                    email=email, name=email.split("@")[0].replace(".", " ").title()
+                )
 
             try:
                 decoded = base64.b64decode(google_token).decode("utf-8")
@@ -42,18 +54,32 @@ class IdentityService:
                 name = str(data.get("name", email.split("@")[0]))
                 return GoogleIdentity(email=email, name=name)
             except Exception as exc:  # noqa: BLE001
-                raise AuthenticationError(message="Mock Google token format is invalid", code="GOOGLE_TOKEN_INVALID") from exc
+                raise AuthenticationError(
+                    message="Mock Google token format is invalid",
+                    code="GOOGLE_TOKEN_INVALID",
+                ) from exc
 
-        raise AuthenticationError(message="Real Google OAuth validation is not enabled in this build", code="GOOGLE_OAUTH_UNAVAILABLE")
+        raise AuthenticationError(
+            message="Real Google OAuth validation is not enabled in this build",
+            code="GOOGLE_OAUTH_UNAVAILABLE",
+        )
 
     def resolve_tenant(self, db: Session, email: str) -> Tenant:
         if "@" not in email:
-            raise AuthenticationError(message="Invalid identity email", code="IDENTITY_EMAIL_INVALID")
+            raise AuthenticationError(
+                message="Invalid identity email", code="IDENTITY_EMAIL_INVALID"
+            )
 
         domain = email.split("@", 1)[1].lower()
-        tenant = db.scalar(select(Tenant).where(Tenant.domain == domain, Tenant.status == TenantStatus.active))
+        tenant = db.scalar(
+            select(Tenant).where(
+                Tenant.domain == domain, Tenant.status == TenantStatus.active
+            )
+        )
         if not tenant:
-            raise AuthenticationError(message="Email domain is not onboarded", code="UNKNOWN_TENANT")
+            raise AuthenticationError(
+                message="Email domain is not onboarded", code="UNKNOWN_TENANT"
+            )
         return tenant
 
     def resolve_user(self, db: Session, tenant_id: str, email: str) -> User:
@@ -65,10 +91,14 @@ class IdentityService:
             )
         )
         if not user:
-            raise AuthenticationError(message="User is not provisioned for this tenant", code="USER_NOT_FOUND")
+            raise AuthenticationError(
+                message="User is not provisioned for this tenant", code="USER_NOT_FOUND"
+            )
         return user
 
-    def _persona_allowed_domains(self, persona: PersonaType, admin_function: str | None) -> list[str]:
+    def _persona_allowed_domains(
+        self, persona: PersonaType, admin_function: str | None
+    ) -> list[str]:
         if persona == PersonaType.student:
             return ["academic", "finance_self", "notices"]
         if persona == PersonaType.faculty:
@@ -84,7 +114,12 @@ class IdentityService:
             }
             return mapping.get((admin_function or "").lower(), ["department"])
         if persona == PersonaType.executive:
-            return ["campus_aggregate", "academic_aggregate", "finance_aggregate", "hr_aggregate"]
+            return [
+                "campus_aggregate",
+                "academic_aggregate",
+                "finance_aggregate",
+                "hr_aggregate",
+            ]
         if persona == PersonaType.it_head:
             return ["admin"]
         return []
@@ -109,9 +144,20 @@ class IdentityService:
         device_trusted: bool,
         mfa_verified: bool,
     ) -> ScopeContext:
-        allowed_domains = self._persona_allowed_domains(user.persona_type, user.admin_function)
-        denied_domains = [domain for domain in ALL_DOMAINS if all(domain not in allowed for allowed in allowed_domains)]
-        masked_fields = sorted(set((user.masked_fields or []) + self._persona_masked_fields(user.persona_type)))
+        allowed_domains = self._persona_allowed_domains(
+            user.persona_type, user.admin_function
+        )
+        denied_domains = [
+            domain
+            for domain in ALL_DOMAINS
+            if all(domain not in allowed for allowed in allowed_domains)
+        ]
+        masked_fields = sorted(
+            set(
+                (user.masked_fields or [])
+                + self._persona_masked_fields(user.persona_type)
+            )
+        )
 
         return ScopeContext(
             tenant_id=tenant.id,

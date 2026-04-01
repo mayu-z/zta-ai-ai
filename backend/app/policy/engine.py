@@ -4,11 +4,18 @@ from datetime import datetime
 
 from app.core.exceptions import AuthorizationError
 from app.interpreter.domain_gate import is_domain_allowed
-from app.schemas.pipeline import CompiledQueryPlan, InterpretedIntent, PolicyDecision, ScopeContext
+from app.schemas.pipeline import (
+    CompiledQueryPlan,
+    InterpretedIntent,
+    PolicyDecision,
+    ScopeContext,
+)
 
 
 class PolicyEngine:
-    def authorize(self, scope: ScopeContext, intent: InterpretedIntent, plan: CompiledQueryPlan) -> PolicyDecision:
+    def authorize(
+        self, scope: ScopeContext, intent: InterpretedIntent, plan: CompiledQueryPlan
+    ) -> PolicyDecision:
         # IT Head can only access admin domain through chat
         if scope.persona_type == "it_head":
             if intent.domain != "admin":
@@ -26,10 +33,15 @@ class PolicyEngine:
             )
 
         if not is_domain_allowed(intent.domain, scope.allowed_domains):
-            raise AuthorizationError(message="Domain not allowed for persona", code="POLICY_DOMAIN_DENY")
+            raise AuthorizationError(
+                message="Domain not allowed for persona", code="POLICY_DOMAIN_DENY"
+            )
 
         if scope.aggregate_only and not plan.requires_aggregate:
-            raise AuthorizationError(message="Executive access requires aggregate output", code="EXEC_AGGREGATE_ONLY")
+            raise AuthorizationError(
+                message="Executive access requires aggregate output",
+                code="EXEC_AGGREGATE_ONLY",
+            )
 
         local_hour = datetime.now().hour
         if intent.domain in {"finance", "hr"} and (local_hour < 9 or local_hour > 19):
@@ -38,7 +50,9 @@ class PolicyEngine:
                 code="ABAC_TIME_BLOCK",
             )
 
-        if intent.domain in {"finance", "hr"} and (not scope.device_trusted or not scope.mfa_verified):
+        if intent.domain in {"finance", "hr"} and (
+            not scope.device_trusted or not scope.mfa_verified
+        ):
             raise AuthorizationError(
                 message="Sensitive domain requires trusted device and MFA",
                 code="ABAC_TRUST_BLOCK",
@@ -46,7 +60,9 @@ class PolicyEngine:
 
         return PolicyDecision(allowed=True)
 
-    def apply_field_masking(self, values: dict[str, object], masked_fields: list[str]) -> tuple[dict[str, object], list[str]]:
+    def apply_field_masking(
+        self, values: dict[str, object], masked_fields: list[str]
+    ) -> tuple[dict[str, object], list[str]]:
         if not masked_fields:
             return values, []
 

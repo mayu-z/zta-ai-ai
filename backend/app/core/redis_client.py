@@ -15,6 +15,7 @@ except Exception:  # noqa: BLE001
     class RedisError(Exception):
         pass
 
+
 from app.core.config import get_settings
 
 
@@ -45,7 +46,9 @@ class InMemoryRedis:
 
     def setex(self, key: str, ttl_seconds: int, value: str) -> bool:
         with self._lock:
-            self._kv[key] = _ValueEntry(value=value, expires_at=time.time() + ttl_seconds)
+            self._kv[key] = _ValueEntry(
+                value=value, expires_at=time.time() + ttl_seconds
+            )
         return True
 
     def set(self, key: str, value: str) -> bool:
@@ -141,7 +144,9 @@ class RedisClient:
         return json.loads(payload)
 
     def set_json(self, key: str, value: dict[str, Any], ttl_seconds: int) -> None:
-        self.client.setex(key, ttl_seconds, json.dumps(value, ensure_ascii=True, sort_keys=True))
+        self.client.setex(
+            key, ttl_seconds, json.dumps(value, ensure_ascii=True, sort_keys=True)
+        )
 
 
 redis_client = RedisClient()

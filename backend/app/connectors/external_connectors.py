@@ -21,7 +21,9 @@ class ERPNextConnector(ConnectorBase):
         return []
 
     def execute_query(self, db: Session, plan: CompiledQueryPlan) -> dict[str, Any]:
-        raise NotImplementedError("ERPNext connector execution is a real-source adapter and is intentionally not enabled in mock mode")
+        raise NotImplementedError(
+            "ERPNext connector execution is a real-source adapter and is intentionally not enabled in mock mode"
+        )
 
     def sync(self) -> None:
         return None
@@ -38,7 +40,9 @@ class GoogleSheetsConnector(ConnectorBase):
         return []
 
     def execute_query(self, db: Session, plan: CompiledQueryPlan) -> dict[str, Any]:
-        raise NotImplementedError("Google Sheets connector execution is a real-source adapter and is intentionally not enabled in mock mode")
+        raise NotImplementedError(
+            "Google Sheets connector execution is a real-source adapter and is intentionally not enabled in mock mode"
+        )
 
     def sync(self) -> None:
         return None

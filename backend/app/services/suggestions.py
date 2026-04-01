@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 PERSONA_ZTA_SUGGESTIONS = {
     "executive": [
         "Give me campus aggregate KPI summary.",
