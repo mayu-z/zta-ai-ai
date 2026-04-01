@@ -70,12 +70,6 @@ class RedisProtocol(Protocol):
     ) -> tuple[int, list[str]]:
         ...
 
-try:
-    import redis
-except Exception:  # noqa: BLE001
-    redis = None
-
-
 from app.core.config import get_settings
 
 
@@ -214,8 +208,11 @@ class RedisClient:
         self._lock = threading.Lock()
 
     def _connect(self) -> RedisProtocol:
-        if redis is None:
+        try:
+            import redis
+        except Exception:  # noqa: BLE001
             return InMemoryRedis()
+
         try:
             candidate = redis.Redis.from_url(self._settings.redis_url, decode_responses=True)
             candidate.ping()
