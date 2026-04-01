@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from app.core.config import get_settings
 from app.core.exceptions import ValidationError
 from app.schemas.pipeline import InterpretedIntent, ScopeContext
 
 try:
-    from openai import OpenAI
+    from openai import OpenAI as OpenAIClient
 except (
     ImportError
 ):  # pragma: no cover - handled at runtime when dependency is unavailable
-    OpenAI = None
+    OpenAIClient = None
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class SLMSimulator:
 
     def __init__(self) -> None:
         self.settings = get_settings()
-        self._client: OpenAI | None = None
+        self._client: Any | None = None
 
     def render_template(self, intent: InterpretedIntent, scope: ScopeContext) -> str:
         # IT Head can only use admin templates
@@ -82,7 +83,7 @@ class SLMSimulator:
     def _render_with_hosted_slm(
         self, intent: InterpretedIntent, scope: ScopeContext
     ) -> str:
-        if not self.settings.slm_api_key or OpenAI is None:
+        if not self.settings.slm_api_key or OpenAIClient is None:
             raise ValidationError(
                 message="Hosted SLM client is not available",
                 code="SLM_CLIENT_UNAVAILABLE",
@@ -166,9 +167,9 @@ class SLMSimulator:
                 code="SLM_REQUEST_FAILED",
             ) from exc
 
-    def _get_client(self) -> OpenAI | None:
-        if self._client is None and OpenAI is not None:
-            self._client = OpenAI(
+    def _get_client(self) -> Any | None:
+        if self._client is None and OpenAIClient is not None:
+            self._client = OpenAIClient(
                 base_url=self.settings.slm_base_url,
                 api_key=self.settings.slm_api_key,
             )

@@ -4,6 +4,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy.orm import Session
 
@@ -184,10 +185,13 @@ class PipelineService:
                     metadata={"reason": "cache_hit"},
                 )
 
+            # At this point template is guaranteed to exist (cache hit or SLM render).
+            safe_template = cast(str, template)
+
             # Stage 4: Output guard validation
             with self._track_stage(pipeline_id, "output_guard", 4):
                 output_guard.validate(
-                    template, interpreter_output.schema_real_identifiers
+                    safe_template, interpreter_output.schema_real_identifiers
                 )
 
             # Stage 5: Compiler (query plan generation)
@@ -215,7 +219,7 @@ class PipelineService:
             # Stage 9: Detokenization
             with self._track_stage(pipeline_id, "detokenization", 9):
                 final_response = compiler_service.detokenize(
-                    template=template,
+                    template=safe_template,
                     query_plan=compiled_query,
                     values=masked_values,
                     masked_fields_applied=masked_fields_applied,
@@ -231,7 +235,7 @@ class PipelineService:
                         tenant_id=scope.tenant_id,
                         intent_hash=interpreter_output.intent_hash,
                         normalized_intent=interpreter_output.intent.normalized(),
-                        response_template=template,
+                        response_template=safe_template,
                         compiled_query=compiled_query.model_dump(mode="json"),
                     )
             else:
