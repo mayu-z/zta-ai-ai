@@ -51,10 +51,6 @@ class SLMSimulator:
         self._client: Any | None = None
 
     def render_template(self, intent: InterpretedIntent, scope: ScopeContext) -> str:
-        # IT Head can only use admin templates
-        if scope.persona_type == "it_head" and intent.domain != "admin":
-            return "Access to chat templates is blocked for this persona."
-
         # Use predefined template if available for this intent
         if intent.name in INTENT_TEMPLATES:
             return INTENT_TEMPLATES[intent.name]

@@ -65,7 +65,8 @@ class InterpreterService:
         self._enforce_executive_aggregate_only(sanitized_prompt, scope)
 
         detected_domains = detect_domains(sanitized_prompt)
-        enforce_domain_gate(detected_domains, scope.allowed_domains)
+        if scope.persona_type != "it_head":
+            enforce_domain_gate(detected_domains, scope.allowed_domains)
 
         aliased_prompt, real_identifiers = apply_schema_aliasing(
             db, scope.tenant_id, sanitized_prompt
