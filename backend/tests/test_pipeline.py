@@ -21,8 +21,10 @@ def test_student_attendance_pipeline(db_session):
     result = pipeline_service.process_query(db=db_session, scope=scope, query_text="What is my attendance percentage this semester?")
 
     assert result.was_blocked is False
-    assert "attendance" in result.response_text.lower()
-    assert "78.4" in result.response_text
+    # SLM generates dynamic templates - verify values are present, not specific wording
+    assert "78.4" in result.response_text  # attendance percentage
+    assert "6" in result.response_text  # subject count
+    assert result.source == "mock_claims"
 
 
 def test_student_cross_user_block(db_session):
