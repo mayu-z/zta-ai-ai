@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 UNSAFE_HINTS = ("select ", " from ", "schema", "table", "system prompt")
 
 
-class SLMSimulator:
+'''''''class SLMSimulator:
     """
     Strict untrusted rendering layer (sandboxed, stateless).
 

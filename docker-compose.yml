@@ -77,14 +77,16 @@ services:
       db-init:
         condition: service_completed_successfully
 
-  frontend:
+  streamlit:
     build:
-      context: ./frontend
+      context: ./streamlit_frontend
       dockerfile: Dockerfile
     ports:
-      - "8080:80"
+      - "8501:8501"
+      - "8080:8501"
     depends_on:
       - api
+    restart: unless-stopped
 
 volumes:
   pg_data:
