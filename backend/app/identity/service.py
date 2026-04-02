@@ -125,13 +125,20 @@ class IdentityService:
         return []
 
     def _persona_masked_fields(self, persona: PersonaType) -> list[str]:
+        """
+        Return fields that should be masked for each persona type.
+        
+        Note: IT Head has NO masked fields because they only access admin domain
+        which contains operational metadata, not sensitive business data.
+        The policy layer blocks IT Head from accessing non-admin domains entirely.
+        """
         defaults = {
             PersonaType.student: ["salary", "bank_account", "ssn", "tax_id"],
             PersonaType.faculty: ["bank_account", "ssn", "tax_id"],
             PersonaType.dept_head: ["salary", "bank_account", "ssn", "tax_id"],
             PersonaType.admin_staff: ["bank_account", "ssn", "tax_id"],
             PersonaType.executive: ["student_pii", "salary_row", "ssn", "bank_account"],
-            PersonaType.it_head: ["*"],
+            PersonaType.it_head: [],  # No masking - admin data is operational, not sensitive
         }
         return defaults.get(persona, []).copy()
 

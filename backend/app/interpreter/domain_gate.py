@@ -58,11 +58,15 @@ DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     ),
     "admin": (
         "audit",
+        "audit log",
+        "audit-log",
         "schema",
         "connector",
+        "connectors",
         "kill switch",
+        "data sources",
         "data-sources",
-        "audit-log",
+        "admin dashboard",
     ),
 }
 
