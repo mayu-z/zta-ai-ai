@@ -104,3 +104,29 @@ def test_compiler_injects_aggregate_scope(db_session):
 
     assert plan.requires_aggregate is True
     assert plan.filters.get("aggregate_only") is True
+
+
+def test_executive_finance_query_blocked(db_session):
+    """Test executive is blocked from accessing transactional finance data."""
+    scope = _scope_for(db_session, "executive@ipeds.local")
+
+    with pytest.raises(AuthorizationError) as exc:
+        pipeline_service.process_query(
+            db=db_session, scope=scope, query_text="Show finance records summary."
+        )
+
+    assert exc.value.code == "DOMAIN_FORBIDDEN"
+    assert "finance" in exc.value.message.lower()
+
+
+def test_admissions_cross_domain_blocked(db_session):
+    """Test admissions staff is blocked from accessing campus aggregate data."""
+    scope = _scope_for(db_session, "admissions@ipeds.local")
+
+    with pytest.raises(AuthorizationError) as exc:
+        pipeline_service.process_query(
+            db=db_session, scope=scope, query_text="Give me campus aggregate KPI summary."
+        )
+
+    assert exc.value.code == "DOMAIN_FORBIDDEN"
+    assert "campus" in exc.value.message.lower()

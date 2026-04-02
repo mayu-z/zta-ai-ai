@@ -19,6 +19,7 @@ DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
         "class",
     ),
     "finance": (
+        "finance",
         "fee",
         "payment",
         "budget",
@@ -27,6 +28,7 @@ DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
         "salary",
         "payroll",
         "invoice",
+        "financial",
     ),
     "hr": ("leave", "faculty record", "employee", "payslip", "attrition"),
     "admissions": (
@@ -76,6 +78,7 @@ AGGREGATION_MODIFIERS: tuple[str, ...] = (
 
 
 def normalize_domain(domain: str) -> str:
+    """Extract base domain from suffixed domain like 'finance_aggregate' -> 'finance'."""
     if "_" in domain:
         return domain.split("_", 1)[0]
     return domain
@@ -107,8 +110,48 @@ def detect_domains(prompt: str) -> list[str]:
 
 
 def is_domain_allowed(domain: str, allowed_domains: list[str]) -> bool:
-    canonical = normalize_domain(domain)
-    return any(normalize_domain(allowed) == canonical for allowed in allowed_domains)
+    """
+    Check if a detected domain is allowed by the user's allowed_domains list.
+    
+    For aggregate domains (e.g., finance_aggregate):
+    - Allows 'campus' domain (IPEDS aggregate data)
+    - Does NOT allow the base domain (e.g., finance) for transactional data
+    
+    This ensures executives can query aggregate institution data but not 
+    transactional financial records.
+    """
+    # Sensitive domains that should NOT be accessible via aggregate permissions
+    # E.g., finance_aggregate allows campus IPEDS data, NOT transactional finance
+    SENSITIVE_DOMAINS = {"finance", "hr"}
+    
+    for allowed in allowed_domains:
+        # Exact match always works
+        if allowed == domain:
+            return True
+        
+        # For aggregate permissions, check what they allow
+        if allowed.endswith("_aggregate"):
+            base_domain = normalize_domain(allowed)
+            
+            # Aggregate permissions always allow 'campus' domain (IPEDS data)
+            if domain == "campus":
+                return True
+            
+            # For sensitive domains, aggregate permission does NOT grant base domain access
+            # E.g., finance_aggregate does NOT allow 'finance' domain
+            if base_domain in SENSITIVE_DOMAINS:
+                continue
+            
+            # For non-sensitive domains (academic, etc.), aggregate allows base domain
+            # but policy layer enforces aggregate-only output
+            if domain == base_domain:
+                return True
+        else:
+            # Non-aggregate permission - use normalized matching
+            if normalize_domain(allowed) == domain:
+                return True
+    
+    return False
 
 
 def enforce_domain_gate(

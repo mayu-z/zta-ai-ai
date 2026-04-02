@@ -701,41 +701,40 @@
 
     const PIPELINE_GROUPS = [
       {
-        title: "Input And Context",
+        title: "Input Layer",
         stages: [
-          { key: "history_user_message", label: "History User Message" },
-          { key: "it_head_check", label: "IT Head Check" }
+          { key: "history_user_message", label: "Store User Message" }
         ]
       },
       {
         title: "Interpreter Layer",
         stages: [
-          { key: "interpreter", label: "Interpreter Layer" },
-          { key: "intent_cache", label: "Intent Cache" },
-          { key: "slm_render", label: "SLM Render" }
+          { key: "interpreter", label: "Interpreter (Sanitizer → Domain Gate → Intent)" },
+          { key: "intent_cache", label: "Intent Cache Check" },
+          { key: "slm_render", label: "SLM Template Render" }
         ]
       },
       {
-        title: "Policy And Security",
+        title: "Policy & Compiler",
         stages: [
-          { key: "output_guard", label: "Output Guard" },
-          { key: "compiler", label: "Compiler" },
+          { key: "output_guard", label: "Output Guard Validation" },
+          { key: "compiler", label: "Query Plan Compiler" },
           { key: "policy_authorization", label: "Policy Authorization" }
         ]
       },
       {
-        title: "Execution And Output",
+        title: "Execution Layer",
         stages: [
-          { key: "tool_execution", label: "Tool Execution" },
+          { key: "tool_execution", label: "Tool Layer Execution" },
           { key: "field_masking", label: "Field Masking" },
           { key: "detokenization", label: "Detokenization" }
         ]
       },
       {
-        title: "Persistence And Audit",
+        title: "Persistence & Audit",
         stages: [
           { key: "cache_storage", label: "Cache Storage" },
-          { key: "history_assistant_message", label: "History Assistant Message" },
+          { key: "history_assistant_message", label: "Store Assistant Message" },
           { key: "audit_logging", label: "Audit Logging" }
         ]
       }

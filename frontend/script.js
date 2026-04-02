@@ -456,21 +456,21 @@ const pipelineMonitor = {
   ws: null,
   activePipelines: new Map(),
   selectedPipelineId: null,
+  // Stages must match backend pipeline.py exactly
   stages: [
     { index: 0, name: "history_user_message", label: "Store User Message" },
-    { index: 1, name: "it_head_check", label: "IT HEAD Check" },
-    { index: 2, name: "interpreter", label: "Interpreter Layer" },
-    { index: 3, name: "intent_cache", label: "Intent Cache Check" },
-    { index: 4, name: "slm_render", label: "SLM Render" },
-    { index: 5, name: "output_guard", label: "Output Guard" },
-    { index: 6, name: "compiler", label: "Compiler" },
-    { index: 7, name: "policy_authorization", label: "Policy Authorization" },
-    { index: 8, name: "tool_execution", label: "Tool Execution" },
-    { index: 9, name: "field_masking", label: "Field Masking" },
-    { index: 10, name: "detokenization", label: "Detokenization" },
-    { index: 11, name: "cache_storage", label: "Cache Storage" },
-    { index: 12, name: "history_assistant_message", label: "Store Assistant Message" },
-    { index: 13, name: "audit_logging", label: "Audit Logging" }
+    { index: 1, name: "interpreter", label: "Interpreter (Sanitizer → Domain Gate → Intent)" },
+    { index: 2, name: "intent_cache", label: "Intent Cache Check" },
+    { index: 3, name: "slm_render", label: "SLM Template Render" },
+    { index: 4, name: "output_guard", label: "Output Guard Validation" },
+    { index: 5, name: "compiler", label: "Query Plan Compiler" },
+    { index: 6, name: "policy_authorization", label: "Policy Authorization" },
+    { index: 7, name: "tool_execution", label: "Tool Layer Execution" },
+    { index: 8, name: "field_masking", label: "Field Masking" },
+    { index: 9, name: "detokenization", label: "Detokenization" },
+    { index: 10, name: "cache_storage", label: "Cache Storage" },
+    { index: 11, name: "history_assistant_message", label: "Store Assistant Message" },
+    { index: 12, name: "audit_logging", label: "Audit Logging" }
   ]
 };
 
