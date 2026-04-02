@@ -190,7 +190,38 @@ def extract_intent(
 ) -> InterpretedIntent:
     lower_prompt = aliased_prompt.lower()
 
-    # Try to match a specific intent rule by keywords first
+    # Persona-specific intent mapping for ambiguous queries
+    PERSONA_INTENT_OVERRIDES: dict[str, dict[str, str]] = {
+        "faculty": {
+            # Faculty asking about "attendance" or "courses" should get faculty intent
+            "attendance": "faculty_course_attendance",
+            "course": "faculty_course_attendance",
+            "my courses": "faculty_course_attendance",
+        },
+        "student": {
+            # Students asking about "attendance" should get student intent
+            "attendance": "student_attendance",
+            "grade": "student_grades",
+            "gpa": "student_grades",
+            "fee": "student_fee",
+        },
+        "dept_head": {
+            # Dept heads asking about metrics should get department intent
+            "department": "department_metrics",
+            "faculty": "department_metrics",
+        },
+    }
+
+    # Check for persona-specific overrides first
+    overrides = PERSONA_INTENT_OVERRIDES.get(persona_type, {})
+    for keyword, intent_name in overrides.items():
+        if keyword in lower_prompt:
+            rule = next((r for r in INTENT_RULES if r.name == intent_name), None)
+            if rule and rule.domain in detected_domains:
+                return _build_intent(rule, raw_prompt, sanitized_prompt, aliased_prompt, 
+                                     detected_domains, lower_prompt)
+
+    # Try to match a specific intent rule by keywords
     rule = None
     for candidate in INTENT_RULES:
         # Skip rules that don't match detected domains
@@ -233,6 +264,19 @@ def extract_intent(
                 INTENT_RULES[0],  # Default to first rule (executive_kpi)
             )
 
+    return _build_intent(rule, raw_prompt, sanitized_prompt, aliased_prompt,
+                         detected_domains, lower_prompt)
+
+
+def _build_intent(
+    rule: IntentRule,
+    raw_prompt: str,
+    sanitized_prompt: str,
+    aliased_prompt: str,
+    detected_domains: list[str],
+    lower_prompt: str,
+) -> InterpretedIntent:
+    """Build InterpretedIntent from matched rule."""
     aggregation = "aggregate" if rule.requires_aggregation else None
     if "aggregate" in lower_prompt or "summary" in lower_prompt:
         aggregation = aggregation or "summary"

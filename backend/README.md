@@ -4,7 +4,7 @@ This backend implements the ZTA-AI security pipeline from the Engineering Specif
 
 Client -> Identity -> Interpreter -> Compiler -> Policy Engine -> Tool Layer -> Data Sources -> Compiler De-tokenization -> Response
 
-The SLM layer is untrusted and simulated as a strict template renderer that outputs `[SLOT_N]` placeholders only.
+The SLM layer generates dynamic templates via a hosted model (NVIDIA Phi-3) and outputs `[SLOT_N]` placeholders only. No hardcoded templates are used.
 
 ## 1. Prerequisites
 
@@ -29,11 +29,13 @@ copy .env.example .env
 docker compose up -d postgres redis
 ```
 
-## 4. Initialize Schema + Seed Data
+## 4. Initialize Schema + Seed IPEDS Data
 
 ```bash
 python scripts/seed_data.py
 ```
+
+This seeds 5,826 real institutions from IPEDS CSV data (87,390 claims).
 
 ## 5. Start API and Worker
 
@@ -53,7 +55,7 @@ celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO
 
 ```json
 {
-  "google_token": "mock:student@campusa.edu"
+  "google_token": "mock:executive@ipeds.local"
 }
 ```
 
@@ -76,14 +78,13 @@ The returned JWT must be passed in:
 
 Run `scripts/postgres_hardening.sql` in production to enforce DB-level append-only triggers for `audit_log`.
 
-## 9. Representative Users
+## 9. IPEDS Users
 
-- `student@campusa.edu`
-- `faculty@campusa.edu`
-- `head.cse@campusa.edu`
-- `finance.admin@campusa.edu`
-- `dean@campusa.edu`
-- `it.head@campusa.edu`
+| User | Persona | Description |
+|------|---------|-------------|
+| `executive@ipeds.local` | Executive | Aggregate institution data (enrollment, demographics) |
+| `admissions@ipeds.local` | Admin Staff | Admissions statistics |
+| `ithead@ipeds.local` | IT Head | Admin dashboard only (chat blocked) |
 
 All use `mock:<email>` token format.
 

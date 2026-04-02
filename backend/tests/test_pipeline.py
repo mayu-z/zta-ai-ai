@@ -16,37 +16,47 @@ def _scope_for(db_session, email: str) -> ScopeContext:
     return scope
 
 
-def test_student_attendance_pipeline(db_session):
-    scope = _scope_for(db_session, "student@campusa.edu")
-    result = pipeline_service.process_query(db=db_session, scope=scope, query_text="What is my attendance percentage this semester?")
+def test_executive_enrollment_pipeline(db_session):
+    """Test executive user querying IPEDS enrollment data."""
+    scope = _scope_for(db_session, "executive@ipeds.local")
+    result = pipeline_service.process_query(
+        db=db_session, scope=scope, query_text="What is the total enrollment?"
+    )
 
     assert result.was_blocked is False
-    # SLM generates dynamic templates - verify values are present, not specific wording
-    assert "78.4" in result.response_text  # attendance percentage
-    assert "6" in result.response_text  # subject count
-    assert result.source == "mock_claims"
+    assert result.source == "ipeds_claims"
+    # IPEDS has 5826 institutions with ~2.7M total enrollment
+    assert "5,826" in result.response_text or "5826" in result.response_text
 
 
-def test_student_cross_user_block(db_session):
-    scope = _scope_for(db_session, "student@campusa.edu")
+def test_executive_demographics_pipeline(db_session):
+    """Test executive user querying IPEDS institution demographics."""
+    scope = _scope_for(db_session, "executive@ipeds.local")
+    result = pipeline_service.process_query(
+        db=db_session, scope=scope, query_text="How many HBCU institutions are there?"
+    )
 
-    with pytest.raises(AuthorizationError) as exc:
-        pipeline_service.process_query(db=db_session, scope=scope, query_text="Show attendance for STU-9001")
-
-    assert exc.value.code == "STUDENT_SCOPE_BLOCKED"
+    assert result.was_blocked is False
+    assert result.source == "ipeds_claims"
+    # IPEDS has 101 HBCU institutions
+    assert "101" in result.response_text
 
 
 def test_it_head_chat_blocked(db_session):
-    scope = _scope_for(db_session, "it.head@campusa.edu")
+    """Test IT head is blocked from using chat (admin dashboard only)."""
+    scope = _scope_for(db_session, "ithead@ipeds.local")
 
     with pytest.raises(AuthorizationError) as exc:
-        pipeline_service.process_query(db=db_session, scope=scope, query_text="Show student attendance")
+        pipeline_service.process_query(
+            db=db_session, scope=scope, query_text="Show enrollment data"
+        )
 
     assert exc.value.code == "IT_HEAD_CHAT_BLOCKED"
 
 
 def test_intent_cache_skips_second_slm_call(db_session, monkeypatch):
-    scope = _scope_for(db_session, "student@campusa.edu")
+    """Test that cached intents don't call SLM again."""
+    scope = _scope_for(db_session, "executive@ipeds.local")
 
     called = {"count": 0}
     original = slm_simulator.render_template
@@ -57,23 +67,40 @@ def test_intent_cache_skips_second_slm_call(db_session, monkeypatch):
 
     monkeypatch.setattr(slm_simulator, "render_template", counted_render)
 
-    pipeline_service.process_query(db=db_session, scope=scope, query_text="Show my current GPA")
-    pipeline_service.process_query(db=db_session, scope=scope, query_text="Show my current GPA")
+    pipeline_service.process_query(
+        db=db_session, scope=scope, query_text="Show institution size distribution"
+    )
+    pipeline_service.process_query(
+        db=db_session, scope=scope, query_text="Show institution size distribution"
+    )
 
     assert called["count"] == 1
 
 
 def test_output_guard_blocks_raw_value_leak():
+    """Test output guard blocks templates with raw numeric values."""
     with pytest.raises(UnsafeOutputError) as exc:
-        output_guard.validate("Your attendance is 78.4%.", real_identifiers=[])
+        output_guard.validate("Total enrollment is 2740898.", real_identifiers=[])
 
     assert exc.value.code == "RAW_VALUE_LEAK"
 
 
-def test_compiler_injects_faculty_course_scope(db_session):
-    scope = _scope_for(db_session, "faculty@campusa.edu")
-    interpreted = interpreter_service.run(db_session, scope, "Show attendance for my courses")
+def test_admissions_staff_query(db_session):
+    """Test admissions staff querying admissions data."""
+    scope = _scope_for(db_session, "admissions@ipeds.local")
+    result = pipeline_service.process_query(
+        db=db_session, scope=scope, query_text="Show admissions statistics"
+    )
+
+    assert result.was_blocked is False
+    assert result.source == "ipeds_claims"
+
+
+def test_compiler_injects_aggregate_scope(db_session):
+    """Test compiler enforces aggregate-only for executive users."""
+    scope = _scope_for(db_session, "executive@ipeds.local")
+    interpreted = interpreter_service.run(db_session, scope, "Show total enrollment")
     plan = compiler_service.compile_intent(scope, interpreted.intent)
 
-    assert "course_ids" in plan.filters
-    assert plan.filters["course_ids"] == ["CSE101", "CSE102"]
+    assert plan.requires_aggregate is True
+    assert plan.filters.get("aggregate_only") is True
