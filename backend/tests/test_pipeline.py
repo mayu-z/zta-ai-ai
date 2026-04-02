@@ -3,6 +3,7 @@
 from app.compiler.service import compiler_service
 from app.core.exceptions import AuthorizationError, UnsafeOutputError
 from app.identity.service import identity_service
+from app.interpreter.domain_gate import detect_domains
 from app.interpreter.service import interpreter_service
 from app.schemas.pipeline import ScopeContext
 from app.services.pipeline import pipeline_service
@@ -52,6 +53,22 @@ def test_it_head_chat_blocked(db_session):
         )
 
     assert exc.value.code == "IT_HEAD_CHAT_BLOCKED"
+
+
+def test_domain_detection_supports_singular_admin_data_source():
+    """Singular admin endpoint queries should still classify as admin domain."""
+    assert "admin" in detect_domains("GET /admin/data-source")
+
+
+def test_it_head_admin_data_source_query_allowed(db_session):
+    """IT head can run admin data source query through chat."""
+    scope = _scope_for(db_session, "ithead@ipeds.local")
+    result = pipeline_service.process_query(
+        db=db_session, scope=scope, query_text="GET /admin/data-source"
+    )
+
+    assert result.was_blocked is False
+    assert "IPEDS Claims Source" in result.response_text
 
 
 def test_intent_cache_skips_second_slm_call(db_session, monkeypatch):

@@ -16,7 +16,7 @@ class Detokenizer:
             return f"{value:,}"
         if isinstance(value, list):
             if not value:
-                return "none"
+                return "no records found"
             # Format list of dicts as readable summary
             if isinstance(value[0], dict):
                 items = []

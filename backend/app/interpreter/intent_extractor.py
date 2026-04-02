@@ -144,14 +144,29 @@ INTENT_RULES: tuple[IntentRule, ...] = (
         domain="admin",
         entity_type="admin_data_sources",
         slot_keys=("sources",),
-        keywords=("data-sources", "data sources", "connectors", "connections"),
+        keywords=(
+            "data-sources",
+            "data sources",
+            "data-source",
+            "data source",
+            "datasource",
+            "datasources",
+            "connectors",
+            "connections",
+        ),
     ),
     IntentRule(
         name="admin_audit_log",
         domain="admin",
         entity_type="admin_audit_log",
         slot_keys=("entries",),
-        keywords=("audit-log", "audit log", "audit", "activity log", "logs"),
+        keywords=(
+            "audit-log",
+            "audit log",
+            "audit",
+            "activity log",
+            "logs",
+        ),
     ),
 )
 
