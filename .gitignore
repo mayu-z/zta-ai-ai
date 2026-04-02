@@ -19,3 +19,4 @@ frontend/*.err
 # OS/editor
 .DS_Store
 Thumbs.db
+*.zip
