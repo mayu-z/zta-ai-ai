@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import csv
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -9,6 +11,9 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     Claim,
     ClaimSensitivity,
+    DataSource,
+    DataSourceStatus,
+    DataSourceType,
     PersonaType,
     Tenant,
     TenantStatus,
@@ -198,6 +203,30 @@ def _seed_users(db: Session) -> None:
     ]
     db.add_all(users)
     print(f"Seeded {len(users)} users")
+
+
+def _seed_data_sources(db: Session) -> None:
+    """Seed default admin-visible data source records for IT Head workflows."""
+    config = base64.b64encode(
+        json.dumps(
+            {
+                "dataset": "ipeds_2024",
+                "description": "Seeded IPEDS claims source for admin dashboard.",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        ).encode("utf-8")
+    ).decode("utf-8")
+    row = DataSource(
+        tenant_id=IPEDS_TENANT_ID,
+        name="IPEDS Claims Source",
+        source_type=DataSourceType.ipeds_claims,
+        config_encrypted=config,
+        department_scope=["campus", "admissions"],
+        status=DataSourceStatus.connected,
+    )
+    db.add(row)
+    print("Seeded 1 data source")
 
 
 def _build_claims(institutions: list[IpedInstitution]) -> list[Claim]:
@@ -410,6 +439,8 @@ def seed_ipeds_claims(db: Session) -> int:
     _seed_tenant(db)
     db.flush()
     _seed_users(db)
+    db.flush()
+    _seed_data_sources(db)
     db.flush()
     db.add_all(_build_claims(institutions))
     print(f"Seeded IPEDS CSV claims with {len(institutions)} institutions")
