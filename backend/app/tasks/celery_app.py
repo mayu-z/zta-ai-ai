@@ -60,4 +60,4 @@ else:
         },
     )
 
-    celery_app.autodiscover_tasks(["app.tasks"])
+    celery_app.autodiscover_tasks(["app.tasks.audit_tasks"])

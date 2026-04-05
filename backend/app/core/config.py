@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     slm_model: str = Field(default="microsoft/phi-3-mini-128k-instruct")
     slm_temperature: float = Field(default=0.7)
     slm_top_p: float = Field(default=0.95)
-    slm_max_tokens: int = Field(default=2048)
+    slm_max_tokens: int = Field(default=512)
 
 
 @lru_cache(maxsize=1)

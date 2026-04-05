@@ -20,7 +20,12 @@ DISALLOWED_OUTPUT_PATTERNS = [
 
 
 class OutputGuard:
-    def validate(self, template: str, real_identifiers: list[str]) -> None:
+    def validate(
+        self,
+        template: str,
+        real_identifiers: list[str],
+        expected_slot_count: int = 0,
+    ) -> None:
         if contains_raw_number(template):
             raise UnsafeOutputError(
                 message="Template contains raw numeric values", code="RAW_VALUE_LEAK"
@@ -42,6 +47,12 @@ class OutputGuard:
                 )
 
         slots = re.findall(r"\[SLOT_\d+\]", template)
+        slot_numbers = set(int(re.search(r"\d+", s).group()) for s in slots)
+        if expected_slot_count > 0 and max(slot_numbers, default=0) > expected_slot_count:
+            raise UnsafeOutputError(
+                message=f"Template contains more slots than defined ({max(slot_numbers)} > {expected_slot_count})",
+                code="SLOT_COUNT_EXCEEDED",
+            )
         if not slots:
             raise UnsafeOutputError(
                 message="Template missing required SLOT placeholders",

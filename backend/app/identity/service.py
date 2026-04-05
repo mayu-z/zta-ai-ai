@@ -131,7 +131,7 @@ class IdentityService:
             PersonaType.dept_head: ["salary", "bank_account", "ssn", "tax_id"],
             PersonaType.admin_staff: ["bank_account", "ssn", "tax_id"],
             PersonaType.executive: ["student_pii", "salary_row", "ssn", "bank_account"],
-            PersonaType.it_head: ["*"],
+            PersonaType.it_head: [],
         }
         return defaults.get(persona, []).copy()
 

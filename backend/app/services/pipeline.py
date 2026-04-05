@@ -230,6 +230,83 @@ class PipelineService:
                 intent_hash = interpreter_output.intent_hash
                 domains = [interpreter_output.intent.domain]
 
+            DIRECT_RENDER_INTENTS = {"admin_audit_log", "admin_data_sources"}
+            if interpreter_output.intent.name in DIRECT_RENDER_INTENTS:
+                with self._track_stage(pipeline_id, "compiler", 2):
+                    compiled_query = compiler_service.compile_intent(
+                        scope, interpreter_output.intent
+                    )
+                with self._track_stage(pipeline_id, "policy_authorization", 3):
+                    policy_engine.authorize(
+                        scope, interpreter_output.intent, compiled_query
+                    )
+                with self._track_stage(pipeline_id, "tool_execution", 4):
+                    values = tool_layer_service.execute(db, compiled_query)
+
+                latency_ms = int((time.perf_counter() - started) * 1000)
+
+                if interpreter_output.intent.name == "admin_audit_log":
+                    entries = values.get("entries", [])
+                    if not entries:
+                        final_response = "No audit log entries found."
+                    else:
+                        lines = []
+                        for i, item in enumerate(entries[:10], 1):
+                            query = item.get("query_text", "unknown")
+                            blocked = item.get("was_blocked", False)
+                            timestamp = str(item.get("created_at", ""))[:16]
+                            status = "BLOCKED" if blocked else "ALLOWED"
+                            lines.append(f"{i}. [{status}] {query} ({timestamp})")
+                        final_response = "Recent audit log entries:\n" + "\n".join(lines)
+                elif interpreter_output.intent.name == "admin_data_sources":
+                    sources = values.get("sources", [])
+                    if not sources:
+                        final_response = "No data sources configured."
+                    else:
+                        lines = []
+                        for i, item in enumerate(sources, 1):
+                            name = item.get("name", "unknown")
+                            status = item.get("status", "unknown")
+                            source_type = item.get("source_type", "")
+                            lines.append(f"{i}. {name} ({source_type}) — {status}")
+                        final_response = "Connected data sources:\n" + "\n".join(lines)
+
+                history_service.append(
+                    scope.tenant_id,
+                    scope.user_id,
+                    scope.session_id,
+                    "assistant",
+                    final_response,
+                )
+                audit_service.enqueue(
+                    AuditEvent(
+                        tenant_id=scope.tenant_id,
+                        user_id=scope.user_id,
+                        session_id=scope.session_id,
+                        query_text=query_text,
+                        intent_hash=interpreter_output.intent_hash,
+                        domains_accessed=[interpreter_output.intent.domain],
+                        was_blocked=False,
+                        block_reason=None,
+                        response_summary=final_response,
+                        latency_ms=latency_ms,
+                        created_at=datetime.now(tz=UTC),
+                    )
+                )
+                pipeline_monitor.emit_pipeline_complete(
+                    pipeline_id=pipeline_id,
+                    status="success",
+                    total_duration_ms=latency_ms,
+                )
+                return PipelineResult(
+                    response_text=final_response,
+                    source="admin_direct",
+                    latency_ms=latency_ms,
+                    intent_hash=interpreter_output.intent_hash,
+                    domains_accessed=[interpreter_output.intent.domain],
+                    was_blocked=False,
+                )
+
             # Stage 2: Intent cache check
             with self._track_stage(
                 pipeline_id,
@@ -274,7 +351,9 @@ class PipelineService:
             # Stage 6: Output guard validation
             with self._track_stage(pipeline_id, "output_guard", 6):
                 output_guard.validate(
-                    safe_template, interpreter_output.schema_real_identifiers
+                    safe_template,
+                    interpreter_output.schema_real_identifiers,
+                    expected_slot_count=len(interpreter_output.intent.slot_keys),
                 )
 
             # Stage 7: Tool layer execution
