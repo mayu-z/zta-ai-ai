@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
+
+import { ToastHost } from "@/components/ui/toast-host";
+
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -13,8 +16,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ZTA Campus Command Console",
-  description: "Next.js frontend for Zero Trust AI chat, pipeline telemetry, and admin controls.",
+  title: "ZTA-AI",
+  description: "Zero Trust AI Gateway",
 };
 
 export default function RootLayout({
@@ -25,9 +28,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full bg-background text-text-primary">
+        {children}
+        <ToastHost />
+      </body>
     </html>
   );
 }
