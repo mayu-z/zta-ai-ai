@@ -202,18 +202,18 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 const toneClasses: Record<Tone, string> = {
-  idle: "border-slate-500/50 bg-slate-900/60 text-slate-200",
-  loading: "border-amber-300/50 bg-amber-300/15 text-amber-100",
-  ok: "border-emerald-300/50 bg-emerald-300/15 text-emerald-100",
-  error: "border-rose-300/55 bg-rose-300/20 text-rose-100",
+  idle: "border-border bg-bg text-text",
+  loading: "border-primary bg-primary-tint text-primary-hover",
+  ok: "border-primary bg-primary-tint text-primary-hover",
+  error: "border-primary bg-primary-tint text-primary-hover",
 };
 
 const stageClasses: Record<StageStatus, string> = {
-  pending: "border-slate-600 bg-slate-900/70 text-slate-300",
-  started: "border-amber-400 bg-amber-300/15 text-amber-100",
-  completed: "border-emerald-400 bg-emerald-300/15 text-emerald-100",
-  error: "border-rose-400 bg-rose-300/20 text-rose-100",
-  skipped: "border-cyan-400 bg-cyan-300/15 text-cyan-100",
+  pending: "border-border bg-bg text-text-muted",
+  started: "border-primary bg-primary-tint text-primary-hover",
+  completed: "border-primary bg-primary-tint text-primary-hover",
+  error: "border-primary bg-primary-tint text-primary-hover",
+  skipped: "border-primary bg-primary-tint text-primary-hover",
 };
 
 function makeId(prefix: string): string {
@@ -1129,12 +1129,12 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
 
   if (!hydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-8 text-slate-100">
+      <div className="flex min-h-screen items-center justify-center p-8 text-text">
         <div className="glass-panel w-full max-w-md rounded-2xl p-8 text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-cyan-200">
+          <p className="font-mono text-xs uppercase tracking-[0.28em] text-primary-hover">
             ZTA Command Center
           </p>
-          <p className="mt-4 text-slate-300">Restoring local session...</p>
+          <p className="mt-4 text-text-muted">Restoring local session...</p>
         </div>
       </div>
     );
@@ -1162,7 +1162,7 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
   }
 
   return (
-    <div className="min-h-screen px-3 pb-4 pt-3 text-slate-100 md:px-4 md:pt-4">
+    <div className="min-h-screen px-3 pb-4 pt-3 text-text md:px-4 md:pt-4">
       <motion.div
         className="mx-auto flex w-full max-w-[1680px] flex-col gap-3"
         initial={{ opacity: 0, y: 18 }}
@@ -1172,33 +1172,33 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
         <header className="glass-panel rounded-2xl px-4 py-4 md:px-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-cyan-200">
+              <p className="font-mono text-xs uppercase tracking-[0.24em] text-primary-hover">
                 ZTA Campus Runtime
               </p>
               <h1 className="mt-2 text-xl font-semibold tracking-tight md:text-3xl">
                 {user.name} :: {user.persona}
               </h1>
-              <p className="mt-2 text-sm text-slate-300">{roleHeadline(user.persona)}</p>
+              <p className="mt-2 text-sm text-text-muted">{roleHeadline(user.persona)}</p>
             </div>
 
             <div className="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-4">
-              <label className="flex min-w-[210px] flex-col gap-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+              <label className="flex min-w-[210px] flex-col gap-1 text-[11px] uppercase tracking-[0.18em] text-text-muted">
                 API Base
                 <input
-                  className="rounded-lg border border-slate-600 bg-slate-900/70 px-2 py-1.5 text-sm text-slate-100 outline-none transition focus:border-cyan-300"
+                  className="rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-text outline-none transition focus:border-primary"
                   value={apiBase}
                   onChange={(event) => setApiBase(event.target.value)}
                 />
               </label>
 
-              <div className="rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-[0.17em] text-slate-400">Persona</p>
-                <p className="font-medium text-slate-100">{user.persona}</p>
+              <div className="rounded-lg border border-border bg-bg px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.17em] text-text-muted">Persona</p>
+                <p className="font-medium text-text">{user.persona}</p>
               </div>
 
-              <div className="rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-[0.17em] text-slate-400">Department</p>
-                <p className="font-medium text-slate-100">{user.department ?? "--"}</p>
+              <div className="rounded-lg border border-border bg-bg px-3 py-2">
+                <p className="text-[11px] uppercase tracking-[0.17em] text-text-muted">Department</p>
+                <p className="font-medium text-text">{user.department ?? "--"}</p>
               </div>
 
               <div className={`rounded-lg border px-3 py-2 ${toneClasses[status.tone]}`}>
@@ -1211,21 +1211,21 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className="rounded-lg border border-cyan-300/65 bg-cyan-300/10 px-3 py-1.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/20"
+              className="rounded-lg border border-primary bg-primary-tint px-3 py-1.5 text-sm font-medium text-primary-hover transition hover:bg-primary-tint"
               onClick={() => void refreshToken()}
             >
               Refresh Token
             </button>
             <button
               type="button"
-              className="rounded-lg border border-emerald-300/65 bg-emerald-300/10 px-3 py-1.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-300/20"
+              className="rounded-lg border border-primary bg-primary-tint px-3 py-1.5 text-sm font-medium text-primary-hover transition hover:bg-primary-tint"
               onClick={() => void checkHealth()}
             >
               Health Check
             </button>
             <button
               type="button"
-              className="rounded-lg border border-amber-300/65 bg-amber-300/10 px-3 py-1.5 text-sm font-medium text-amber-100 transition hover:bg-amber-300/20"
+              className="rounded-lg border border-primary bg-primary-tint px-3 py-1.5 text-sm font-medium text-primary-hover transition hover:bg-primary-tint"
               onClick={() => {
                 if (monitorConnected) {
                   disconnectMonitor();
@@ -1238,7 +1238,7 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
             </button>
             <button
               type="button"
-              className="rounded-lg border border-rose-300/70 bg-rose-300/10 px-3 py-1.5 text-sm font-medium text-rose-100 transition hover:bg-rose-300/20"
+              className="rounded-lg border border-primary bg-primary-tint px-3 py-1.5 text-sm font-medium text-primary-hover transition hover:bg-primary-tint"
               onClick={() => void logout()}
             >
               Logout
@@ -1250,8 +1250,8 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
               href="/chat"
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
                 activeView === "chat"
-                  ? "border-cyan-300/75 bg-cyan-300/20 text-cyan-100"
-                  : "border-slate-600 bg-slate-900/50 text-slate-200 hover:border-cyan-300/45"
+                  ? "border-primary bg-primary-tint text-primary-hover"
+                  : "border-border bg-bg text-text hover:border-primary"
               }`}
             >
               Chat Workspace
@@ -1260,8 +1260,8 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
               href="/monitor"
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
                 activeView === "monitor"
-                  ? "border-cyan-300/75 bg-cyan-300/20 text-cyan-100"
-                  : "border-slate-600 bg-slate-900/50 text-slate-200 hover:border-cyan-300/45"
+                  ? "border-primary bg-primary-tint text-primary-hover"
+                  : "border-border bg-bg text-text hover:border-primary"
               }`}
             >
               Pipeline Monitor
@@ -1270,8 +1270,8 @@ export default function RuntimeWorkspace({ activeView }: RuntimeWorkspaceProps) 
               href="/admin"
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
                 activeView === "admin"
-                  ? "border-cyan-300/75 bg-cyan-300/20 text-cyan-100"
-                  : "border-slate-600 bg-slate-900/50 text-slate-200 hover:border-cyan-300/45"
+                  ? "border-primary bg-primary-tint text-primary-hover"
+                  : "border-border bg-bg text-text hover:border-primary"
               }`}
             >
               Admin Console

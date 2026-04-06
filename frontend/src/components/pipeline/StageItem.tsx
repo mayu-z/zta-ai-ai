@@ -14,29 +14,29 @@ type StageVisual = {
 
 const stageVisualMap: Record<PipelineStage["state"], StageVisual> = {
   idle: {
-    dotClass: "bg-slate-500/70",
+    dotClass: "bg-[#D0CCC0]",
     icon: Circle,
-    iconClass: "text-slate-400",
+    iconClass: "text-text-muted",
   },
   running: {
-    dotClass: "bg-amber-400 animate-pulse-dot",
+    dotClass: "bg-[#F1C04B] animate-pulse-dot",
     icon: Loader2,
-    iconClass: "text-amber-300 animate-spin",
+    iconClass: "text-[#9B6D00] animate-spin",
   },
   success: {
-    dotClass: "bg-emerald-400",
+    dotClass: "bg-[#3E9B4F]",
     icon: CheckCircle2,
-    iconClass: "text-emerald-300",
+    iconClass: "text-[#2D7F3E]",
   },
   failed: {
-    dotClass: "bg-red-400",
+    dotClass: "bg-[#D84A3F]",
     icon: AlertTriangle,
-    iconClass: "text-red-300",
+    iconClass: "text-[#B3261E]",
   },
   skipped: {
-    dotClass: "bg-sky-400",
+    dotClass: "bg-[#F1C04B]",
     icon: SkipForward,
-    iconClass: "text-sky-300",
+    iconClass: "text-[#9B6D00]",
   },
 };
 
@@ -46,7 +46,7 @@ export function StageItem({ stage, index }: { stage: PipelineStage; index: numbe
 
   return (
     <div
-      className="animate-slide-in-right grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-white/8 bg-black/20 px-2.5 py-2"
+      className="animate-slide-in-right grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-lg border border-border bg-bg px-2.5 py-2"
       style={{ animationDelay: `${index * 35}ms` }}
     >
       <span className={cn("h-2.5 w-2.5 rounded-full", visual.dotClass)} />

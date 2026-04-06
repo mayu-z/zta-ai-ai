@@ -29,15 +29,15 @@ function statusTone(status: DataSourceItem["status"]): "success" | "warning" | "
 
 function statusDot(status: DataSourceItem["status"]): string {
   if (status === "connected") {
-    return "bg-emerald-400";
+    return "bg-primary";
   }
   if (status === "paused") {
-    return "bg-amber-400";
+    return "bg-primary";
   }
   if (status === "error") {
-    return "bg-red-400";
+    return "bg-primary";
   }
-  return "bg-slate-400";
+  return "bg-bg";
 }
 
 function lastSyncText(value: string | null): string {
@@ -110,7 +110,7 @@ export default function SourcesPage() {
       <section className="flex min-w-0 flex-1 flex-col gap-3">
         <TopBar title="Data Sources" connected={connected} />
 
-        <div className="glass-card flex flex-wrap items-center gap-2 rounded-xl border border-white/10 px-4 py-3">
+        <div className="glass-card flex flex-wrap items-center gap-2 rounded-[14px] px-4 py-3">
           <Badge variant="success">Connected: {summary.connected}</Badge>
           <Badge variant="warning">Paused: {summary.paused}</Badge>
           <Badge variant="danger">Errors: {summary.errors}</Badge>
@@ -123,7 +123,7 @@ export default function SourcesPage() {
             <Skeleton className="h-36 w-full" />
           </div>
         ) : sources.length === 0 ? (
-          <div className="glass-card flex flex-1 items-center justify-center rounded-xl border border-white/10 p-6 text-center">
+          <div className="glass-card flex flex-1 items-center justify-center rounded-[14px] p-6 text-center">
             <div>
               <Database className="mx-auto h-8 w-8 text-text-faint" />
               <p className="mt-2 text-sm text-text-primary">No data sources configured</p>
@@ -135,11 +135,11 @@ export default function SourcesPage() {
             {sources.map((source) => (
               <article
                 key={source.id}
-                className="glass-card rounded-xl border border-white/10 p-4 transition-colors duration-150 hover:border-white/20"
+                className="glass-card rounded-[14px] p-4 transition-colors duration-150 hover:border-primary"
               >
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-semibold text-text-primary">{source.name}</h3>
+                    <h3 className="text-sm font-medium text-text-primary">{source.name}</h3>
                     <p className="text-xs text-text-muted">{source.id}</p>
                   </div>
                   <Badge variant={statusTone(source.status)}>{source.status}</Badge>
@@ -150,16 +150,16 @@ export default function SourcesPage() {
                   <span>{source.source_type}</span>
                 </div>
 
-                <div className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs text-text-muted">
+                <div className="rounded-lg border border-border bg-bg p-2 text-xs text-text-muted">
                   Last sync: <span className="mono-number">{lastSyncText(source.last_sync_at)}</span>
                 </div>
 
                 {(source.status === "paused" || source.status === "error") && (
                   <div className="mt-2 flex items-center gap-1.5 text-xs text-text-faint">
                     {source.status === "paused" ? (
-                      <PauseCircle className="h-3.5 w-3.5 text-amber-300" />
+                      <PauseCircle className="h-3.5 w-3.5 text-primary-hover" />
                     ) : (
-                      <AlertTriangle className="h-3.5 w-3.5 text-red-300" />
+                      <AlertTriangle className="h-3.5 w-3.5 text-primary-hover" />
                     )}
                     {source.status === "paused"
                       ? "Source is paused. Resume from admin controls."

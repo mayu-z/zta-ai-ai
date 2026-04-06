@@ -33,10 +33,13 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="glass-card hidden h-[calc(100vh-2rem)] w-[240px] shrink-0 flex-col rounded-xl border border-white/10 p-4 lg:flex">
+      <aside
+        className="hidden h-[calc(100vh-2rem)] w-[240px] shrink-0 flex-col border-r border-border bg-bg p-4 lg:flex"
+        style={{ borderRightWidth: "0.5px" }}
+      >
         <div className="mb-6 flex items-center gap-2">
-          <span className="animate-pulse-dot h-2.5 w-2.5 rounded-full bg-emerald-400" />
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-text-primary">◈ ZTA-AI</h2>
+          <span className="animate-pulse-dot h-2.5 w-2.5 rounded-full bg-primary" />
+          <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-text-primary">◈ ZTA-AI</h2>
         </div>
 
         <nav className="space-y-1.5">
@@ -48,10 +51,10 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2 text-sm text-text-muted transition-all duration-150",
+                  "group flex items-center gap-3 rounded-md border border-transparent border-l-2 border-l-transparent px-3 py-2 text-sm text-text-muted transition-all duration-150",
                   active
-                    ? "border-indigo-400/40 bg-indigo-500/15 text-indigo-100"
-                    : "hover:border-white/10 hover:bg-white/5 hover:text-text-primary"
+                    ? "border-border border-l-primary bg-primary-tint text-primary-hover"
+                    : "hover:border-border hover:bg-primary-tint hover:text-text-primary"
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -62,12 +65,12 @@ export function Sidebar() {
         </nav>
 
         <div className="mt-auto space-y-3">
-          <button className="flex w-full items-center gap-3 rounded-lg border border-white/10 px-3 py-2 text-sm text-text-muted transition-colors hover:bg-white/5 hover:text-text-primary">
+          <button className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm text-text-muted transition-colors hover:bg-primary-tint hover:text-text-primary">
             <Settings className="h-4 w-4" />
             <span>Settings</span>
           </button>
 
-          <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+          <div className="rounded-xl border border-border bg-bg p-3">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
                 <AvatarFallback>{initials}</AvatarFallback>
@@ -84,7 +87,7 @@ export function Sidebar() {
 
             <Button
               variant="ghost"
-              className="mt-3 w-full justify-start border border-white/10 bg-white/5 text-text-muted hover:bg-white/10 hover:text-text-primary"
+              className="mt-3 w-full justify-start border border-border bg-primary-tint text-text-muted hover:bg-primary-tint hover:text-text-primary"
               onClick={async () => {
                 await logout();
                 router.replace("/login");
@@ -97,7 +100,7 @@ export function Sidebar() {
         </div>
       </aside>
 
-      <nav className="glass-card fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 p-2 lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-bg p-2 lg:hidden">
         <div className="grid grid-cols-3 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -108,7 +111,7 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] transition-colors",
-                  active ? "bg-indigo-500/20 text-indigo-100" : "text-text-muted hover:bg-white/5"
+                  active ? "bg-primary-tint text-primary-hover" : "text-text-muted hover:bg-primary-tint"
                 )}
               >
                 <Icon className="h-4 w-4" />

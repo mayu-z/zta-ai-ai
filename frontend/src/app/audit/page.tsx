@@ -68,9 +68,9 @@ export default function AuditPage() {
         <Sidebar />
         <section className="flex min-w-0 flex-1 flex-col gap-3">
           <TopBar title="Audit Log" connected={connected} />
-          <div className="glass-card flex flex-1 items-center justify-center rounded-xl border border-white/10 p-6">
+          <div className="glass-card flex flex-1 items-center justify-center rounded-[14px] p-6">
             <div className="text-center">
-              <ShieldAlert className="mx-auto h-8 w-8 text-red-300" />
+              <ShieldAlert className="mx-auto h-8 w-8 text-primary-hover" />
               <p className="mt-2 text-sm text-text-primary">Audit log requires IT Head persona.</p>
               <p className="text-xs text-text-muted">Sign in as ithead@ipeds.local to access this page.</p>
             </div>
@@ -87,7 +87,7 @@ export default function AuditPage() {
       <section className="flex min-w-0 flex-1 flex-col gap-3">
         <TopBar title="Audit Log" connected={connected} />
 
-        <div className="glass-card flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
+        <div className="glass-card flex items-center justify-between rounded-[14px] px-4 py-3">
           <div>
             <p className="text-sm font-medium text-text-primary">Recent access decisions and policy outcomes</p>
             <p className="text-xs text-text-muted">Live data from /admin/audit-log</p>
@@ -99,13 +99,13 @@ export default function AuditPage() {
               setPage(1);
               setBlockedOnly((prev) => !prev);
             }}
-            className="rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs text-text-muted hover:border-indigo-400/35 hover:text-indigo-100"
+            className="rounded-full border border-border bg-primary-tint px-3 py-1.5 text-xs text-text-muted hover:border-primary hover:text-primary-hover"
           >
             {blockedOnly ? "Showing Blocked" : "Showing All"}
           </button>
         </div>
 
-        <div className="glass-card flex-1 rounded-xl border border-white/10 p-3">
+        <div className="glass-card flex-1 rounded-[14px] p-3">
           {items === null ? (
             <div className="space-y-2">
               <Skeleton className="h-12 w-full" />
@@ -135,7 +135,7 @@ export default function AuditPage() {
               setItems(null);
               setPage((prev) => Math.max(prev - 1, 1));
             }}
-            className="border-white/12 bg-white/5"
+            className="border-border bg-primary-tint"
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
             Prev
@@ -147,7 +147,7 @@ export default function AuditPage() {
               setItems(null);
               setPage((prev) => prev + 1);
             }}
-            className="border-white/12 bg-white/5"
+            className="border-border bg-primary-tint"
           >
             Next
             <ChevronRight className="ml-1 h-4 w-4" />

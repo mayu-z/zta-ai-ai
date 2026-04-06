@@ -36,17 +36,17 @@ export function AuditTable({ items }: { items: AuditLogItem[] }) {
 
   return (
     <div className="thin-scroll overflow-x-auto">
-      <table className="w-full min-w-[960px] border-separate border-spacing-y-1.5 text-left text-sm">
+      <table className="w-full min-w-[960px] border-collapse text-left text-sm">
         <thead>
-          <tr className="text-xs uppercase tracking-wide text-text-muted">
-            <th className="px-3 py-2">Time</th>
-            <th className="px-3 py-2">User</th>
-            <th className="px-3 py-2">Query</th>
-            <th className="px-3 py-2">Domains</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Latency</th>
-            <th className="px-3 py-2">Latency Flag</th>
-            <th className="px-3 py-2 text-right">Expand</th>
+          <tr className="bg-surface text-xs uppercase tracking-wide text-text-muted">
+            <th className="px-3 py-2 font-medium">Time</th>
+            <th className="px-3 py-2 font-medium">User</th>
+            <th className="px-3 py-2 font-medium">Query</th>
+            <th className="px-3 py-2 font-medium">Domains</th>
+            <th className="px-3 py-2 font-medium">Status</th>
+            <th className="px-3 py-2 font-medium">Latency</th>
+            <th className="px-3 py-2 font-medium">Latency Flag</th>
+            <th className="px-3 py-2 text-right font-medium">Expand</th>
           </tr>
         </thead>
         <tbody>
@@ -56,8 +56,8 @@ export function AuditTable({ items }: { items: AuditLogItem[] }) {
 
             return (
                 <Fragment key={item.id}>
-                  <tr className="glass-card border border-white/10 text-text-primary">
-                  <td className="rounded-l-lg px-3 py-2 text-xs text-text-muted">{formatTime(item.created_at)}</td>
+                  <tr className="border-b border-border text-text-primary transition-colors hover:bg-primary-tint">
+                  <td className="px-3 py-2 text-xs text-text-muted">{formatTime(item.created_at)}</td>
                   <td className="px-3 py-2 text-xs">{item.user_id}</td>
                   <td className="max-w-[300px] truncate px-3 py-2">{item.query_text}</td>
                   <td className="px-3 py-2 text-xs text-text-muted">
@@ -74,12 +74,12 @@ export function AuditTable({ items }: { items: AuditLogItem[] }) {
                   <td className="px-3 py-2">
                     <Badge variant={latencyVariant(latencyFlag)}>{latencyFlag}</Badge>
                   </td>
-                  <td className="rounded-r-lg px-3 py-2 text-right">
+                  <td className="px-3 py-2 text-right">
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 border border-white/10"
+                      className="h-8 w-8 border border-border"
                       onClick={() => setExpandedId(expanded ? null : item.id)}
                       aria-label="Toggle row details"
                     >
@@ -90,7 +90,7 @@ export function AuditTable({ items }: { items: AuditLogItem[] }) {
                 {expanded ? (
                   <tr className="text-xs text-text-muted">
                     <td colSpan={8} className="px-3 pb-3">
-                      <div className="rounded-lg border border-white/10 bg-black/25 p-3">
+                      <div className="rounded-lg border border-border bg-bg p-3">
                         <p className="mb-1 text-text-primary">
                           <span className="font-semibold">Full query:</span> {item.query_text}
                         </p>

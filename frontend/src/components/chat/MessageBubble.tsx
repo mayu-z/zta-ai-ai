@@ -35,14 +35,14 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
       <article
         className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
-          isUser && "bg-indigo-600 text-white",
-          !isUser && !isBlocked && "glass-card border border-white/10 bg-surface/65 text-text-primary",
-          isBlocked && "border border-red-400/30 bg-red-500/12 text-red-100 backdrop-blur-sm"
+          "max-w-[85%] rounded-2xl border px-4 py-3 text-[15px] leading-7",
+          isUser && "border-primary bg-primary-tint text-primary-hover",
+          !isUser && !isBlocked && "glass-card border-[#D8D2C4] bg-[#FFF9F0] text-[#1F1F1D]",
+          isBlocked && "border-[#DE8F8F] bg-[#FDEAEA] text-[#9A1F1F]"
         )}
       >
         {isBlocked ? (
-          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-red-200">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#9A1F1F]">
             <ShieldAlert className="h-4 w-4" />
             Blocked by Policy
           </div>
@@ -61,7 +61,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
               {(message.latencyMs / 1000).toFixed(1)}s
             </Badge>
           ) : null}
-          <span className={cn("text-[10px]", isUser ? "text-indigo-100/75" : "text-text-faint")}>{toTime(message.createdAt)}</span>
+          <span className={cn("text-[10px]", isUser ? "text-primary-hover" : "text-text-faint")}>{toTime(message.createdAt)}</span>
         </footer>
       </article>
     </div>

@@ -25,11 +25,11 @@ export function PipelinePanel() {
 
   if (collapsed) {
     return (
-      <aside className="glass-card hidden h-[calc(100vh-2rem)] w-12 shrink-0 items-start justify-center rounded-xl border border-white/10 pt-3 lg:flex">
+      <aside className="glass-card hidden h-[calc(100vh-2rem)] w-12 shrink-0 items-start justify-center rounded-[14px] pt-3 lg:flex">
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8 border border-white/10"
+          className="h-8 w-8 border border-border"
           onClick={() => setCollapsed(false)}
           aria-label="Expand pipeline panel"
         >
@@ -40,11 +40,18 @@ export function PipelinePanel() {
   }
 
   return (
-    <aside className="glass-card hidden h-[calc(100vh-2rem)] w-[320px] shrink-0 rounded-xl border border-white/10 p-3 lg:flex lg:flex-col">
-      <header className="mb-2 flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+    <aside className="glass-card hidden h-[calc(100vh-2rem)] w-[320px] shrink-0 rounded-[14px] p-3 lg:flex lg:flex-col">
+      <header className="mb-2 flex items-center justify-between gap-2 border-b border-border pb-2">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-text-primary">Pipeline</h3>
-          <Badge variant={isActive ? "success" : "default"} className="mt-1 gap-1.5">
+          <h3 className="text-sm font-medium uppercase tracking-[0.12em] text-text-primary">Pipeline</h3>
+          <Badge
+            variant="default"
+            className={`mt-1 gap-1.5 ${
+              isActive
+                ? "border-[#81B78A] bg-[#E8F3EA] text-[#1F6B2A]"
+                : "border-[#DE8F8F] bg-[#FDEAEA] text-[#9A1F1F]"
+            }`}
+          >
             <Radio className={`h-3 w-3 ${isActive ? "animate-pulse-dot" : ""}`} />
             {isActive ? "Live" : "Idle"}
           </Badge>
@@ -52,7 +59,7 @@ export function PipelinePanel() {
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8 border border-white/10"
+          className="h-8 w-8 border border-border"
           onClick={() => setCollapsed(true)}
           aria-label="Collapse pipeline panel"
         >
@@ -73,7 +80,7 @@ export function PipelinePanel() {
         </Accordion>
       </div>
 
-      <div className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-text-muted">
+      <div className="mt-3 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-muted">
         Total latency:{" "}
         <span className="mono-number text-text-primary">
           {typeof totalLatencyMs === "number" ? `${totalLatencyMs}ms` : "--"}

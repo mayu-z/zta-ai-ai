@@ -61,14 +61,14 @@ export function MonitorSection({
     <aside className="flex min-h-[640px] flex-col gap-3">
       <section className="glass-panel rounded-2xl p-4">
         <div className="flex items-center justify-between">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary-hover">
             Pipeline Radar
           </p>
           <span
             className={`rounded-full border px-2 py-0.5 text-[11px] ${
               monitorConnected
-                ? "border-emerald-300/60 bg-emerald-300/15 text-emerald-100"
-                : "border-slate-600 bg-slate-900/70 text-slate-300"
+                ? "border-primary bg-primary-tint text-primary-hover"
+                : "border-border bg-bg text-text-muted"
             }`}
           >
             {monitorConnected ? "live" : "offline"}
@@ -77,7 +77,7 @@ export function MonitorSection({
 
         <div className="mt-3 grid gap-2">
           {pipelines.length === 0 ? (
-            <div className="rounded-xl border border-slate-600 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+            <div className="rounded-xl border border-border bg-bg px-3 py-2 text-sm text-text-muted">
               No pipeline activity yet.
             </div>
           ) : (
@@ -88,12 +88,12 @@ export function MonitorSection({
                 onClick={() => onSelectPipeline(pipeline.id)}
                 className={`rounded-xl border px-3 py-2 text-left transition ${
                   selectedPipeline?.id === pipeline.id
-                    ? "border-cyan-300/65 bg-cyan-300/12"
-                    : "border-slate-600 bg-slate-900/60 hover:border-cyan-300/45"
+                    ? "border-primary bg-primary-tint"
+                    : "border-border bg-bg hover:border-primary"
                 }`}
               >
-                <p className="line-clamp-1 text-sm text-slate-100">{pipeline.query}</p>
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="line-clamp-1 text-sm text-text">{pipeline.query}</p>
+                <p className="mt-1 text-[11px] text-text-muted">
                   {pipeline.status} • {toDisplayTime(pipeline.startedAt)}
                   {typeof pipeline.totalDurationMs === "number"
                     ? ` • ${pipeline.totalDurationMs}ms`
@@ -106,7 +106,7 @@ export function MonitorSection({
       </section>
 
       <section className="glass-panel flex min-h-[250px] flex-col rounded-2xl p-4">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary-hover">
           Pipeline Stages
         </p>
         <div className="mt-3 flex-1 overflow-y-auto">
@@ -122,11 +122,11 @@ export function MonitorSection({
                   </p>
                   <span className="font-mono text-[11px]">{row.status}</span>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-300">
+                <p className="mt-1 text-[11px] text-text-muted">
                   {typeof row.durationMs === "number" ? `${row.durationMs}ms` : "--"}
                 </p>
                 {row.errorMessage ? (
-                  <p className="mt-1 text-[11px] text-rose-200">{row.errorMessage}</p>
+                  <p className="mt-1 text-[11px] text-primary-hover">{row.errorMessage}</p>
                 ) : null}
               </div>
             ))}
@@ -135,10 +135,10 @@ export function MonitorSection({
       </section>
 
       <section className="glass-panel rounded-2xl p-4">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary-hover">
           Monitor Terminal
         </p>
-        <div className="terminal-feed mt-3 h-36 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950/80 p-2 font-mono text-[11px] text-slate-300">
+        <div className="terminal-feed mt-3 h-36 overflow-y-auto rounded-xl border border-border bg-bg p-2 font-mono text-[11px] text-text-muted">
           {monitorFeed.length === 0
             ? "No monitor events yet."
             : monitorFeed.map((line, index) => (

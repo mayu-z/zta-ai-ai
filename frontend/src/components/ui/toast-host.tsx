@@ -14,14 +14,14 @@ export function ToastHost() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="pointer-events-auto flex items-start gap-2 rounded-lg border border-red-400/35 bg-red-500/15 px-3 py-2 text-sm text-red-100 backdrop-blur"
+          className="pointer-events-auto flex items-start gap-2 rounded-lg border border-primary bg-primary-tint px-3 py-2 text-sm text-primary-hover backdrop-blur"
         >
           <div className="flex-1">{toast.message}</div>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => removeToast(toast.id)}
-            className="h-6 w-6 text-red-100 hover:bg-red-500/20"
+            className="h-6 w-6 text-primary-hover hover:bg-primary-tint"
             aria-label="Dismiss error"
           >
             <X className="h-4 w-4" />

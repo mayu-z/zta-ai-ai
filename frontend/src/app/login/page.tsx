@@ -62,14 +62,14 @@ export default function LoginPage() {
         transitionOut ? "opacity-0" : "opacity-100"
       }`}
     >
-      <div className="glass-card w-full max-w-xl rounded-2xl border border-white/10 p-8 backdrop-blur-sm">
+      <div className="glass-card w-full max-w-xl rounded-2xl p-8">
         <div className="mb-8 flex items-center gap-3">
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-400/35 bg-indigo-500/15">
-            <Sparkles className="h-6 w-6 text-indigo-200" />
-            <span className="animate-pulse-dot absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-emerald-400" />
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-primary bg-primary-tint">
+            <Sparkles className="h-6 w-6 text-primary-hover" />
+            <span className="animate-pulse-dot absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-wide text-text-primary">ZTA-AI</h1>
+            <h1 className="text-xl font-medium tracking-wide text-text-primary">ZTA-AI</h1>
             <p className="text-sm text-text-muted">Zero Trust AI Gateway</p>
           </div>
         </div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="h-12 w-full justify-between border-white/12 bg-surface/70 px-4 text-left text-text-primary hover:bg-surface-elevated"
+                className="h-12 w-full justify-between border-border bg-bg px-4 text-left text-text-primary hover:bg-primary-tint"
               >
                 <span className="flex flex-col leading-tight">
                   <span className="text-sm font-medium">{selected.name}</span>
@@ -108,7 +108,7 @@ export default function LoginPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={PERSONA_BADGE_COLOR[persona.type]}>{persona.type.replace("_", " ")}</Badge>
-                        {selected.key === persona.key ? <Check className="h-4 w-4 text-emerald-300" /> : null}
+                        {selected.key === persona.key ? <Check className="h-4 w-4 text-primary-hover" /> : null}
                       </div>
                     </DropdownMenuItem>
                   ))}
@@ -118,7 +118,7 @@ export default function LoginPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-text-muted">
+          <div className="rounded-lg border border-border bg-bg p-3 text-xs text-text-muted">
             Personas available: <span className="mono-number">{totalPersonas}</span>
           </div>
 

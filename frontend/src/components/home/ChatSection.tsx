@@ -48,7 +48,7 @@ export function ChatSection({
     <>
       <aside className="flex min-h-[420px] flex-col gap-3">
         <section className="glass-panel rounded-2xl p-4">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary-hover">
             Suggestion Deck
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ export function ChatSection({
               <button
                 key={suggestion.id}
                 type="button"
-                className="rounded-xl border border-cyan-300/45 bg-cyan-300/10 px-2.5 py-1.5 text-left text-xs text-cyan-50 transition hover:bg-cyan-300/20"
+                className="rounded-xl border border-primary bg-primary-tint px-2.5 py-1.5 text-left text-xs text-primary-hover transition hover:bg-primary-tint"
                 onClick={() => {
                   onQueryChange(suggestion.text);
                   onSubmitChat(suggestion.text);
@@ -71,10 +71,10 @@ export function ChatSection({
 
         <section className="glass-panel flex min-h-[320px] flex-1 flex-col rounded-2xl p-4">
           <div className="flex items-center justify-between">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary-hover">
               Session Log
             </p>
-            <span className="rounded-full border border-slate-600 bg-slate-900/70 px-2 py-0.5 text-[11px] text-slate-300">
+            <span className="rounded-full border border-border bg-bg px-2 py-0.5 text-[11px] text-text-muted">
               {messages.length} items
             </span>
           </div>
@@ -83,12 +83,12 @@ export function ChatSection({
               {messages.slice(-12).map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-xl border border-slate-600 bg-slate-900/60 px-3 py-2"
+                  className="rounded-xl border border-border bg-bg px-3 py-2"
                 >
-                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-muted">
                     {entry.role} · {toDisplayTime(entry.createdAt)}
                   </p>
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-200">
+                  <p className="mt-1 line-clamp-2 text-sm text-text">
                     {entry.content || "..."}
                   </p>
                 </div>
@@ -101,19 +101,19 @@ export function ChatSection({
       <section className="glass-panel flex min-h-[640px] flex-col rounded-2xl p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-200">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-primary-hover">
               Conversational Terminal
             </p>
-            <p className="mt-1 text-sm text-slate-300">
+            <p className="mt-1 text-sm text-text-muted">
               WebSocket stream powered by /chat/stream with markdown rendering.
             </p>
           </div>
-          <div className="rounded-full border border-slate-600 bg-slate-900/70 px-2 py-0.5 text-[11px] text-slate-300">
+          <div className="rounded-full border border-border bg-bg px-2 py-0.5 text-[11px] text-text-muted">
             {isStreaming ? "streaming" : "idle"}
           </div>
         </div>
 
-        <div className="mt-4 flex-1 overflow-y-auto rounded-2xl border border-slate-600 bg-slate-950/75 px-3 py-3">
+        <div className="mt-4 flex-1 overflow-y-auto rounded-2xl border border-border bg-bg px-3 py-3">
           <div className="flex flex-col gap-3">
             <AnimatePresence initial={false}>
               {messages.map((entry) => (
@@ -121,23 +121,23 @@ export function ChatSection({
                   key={entry.id}
                   className={`max-w-[88%] rounded-2xl border px-3 py-2 ${
                     entry.role === "user"
-                      ? "ml-auto border-cyan-300/60 bg-cyan-300/10"
+                      ? "ml-auto border-primary bg-primary-tint"
                       : entry.isError
-                        ? "border-rose-300/70 bg-rose-300/15"
-                        : "border-slate-600 bg-slate-900/70"
+                        ? "border-primary bg-primary-tint"
+                        : "border-border bg-bg"
                   }`}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.18 }}
                 >
-                  <div className="prose prose-invert max-w-none text-sm prose-code:text-cyan-200 prose-pre:bg-slate-900/90">
+                  <div className="prose  max-w-none text-sm prose-code:text-primary-hover prose-pre:bg-bg">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {entry.content || "..."}
                     </ReactMarkdown>
                   </div>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-text-muted">
                     <span>{entry.role}</span>
                     <span>•</span>
                     <span>{toDisplayTime(entry.createdAt)}</span>
@@ -164,7 +164,7 @@ export function ChatSection({
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            className="flex-1 rounded-xl border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-cyan-300"
+            className="flex-1 rounded-xl border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition focus:border-primary"
             placeholder="Ask a campus question..."
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -176,7 +176,7 @@ export function ChatSection({
           />
           <button
             type="button"
-            className="rounded-xl border border-cyan-300/70 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl border border-primary bg-primary-tint px-4 py-2 text-sm font-semibold text-primary-hover transition hover:bg-primary-tint disabled:cursor-not-allowed disabled:opacity-60"
             onClick={() => onSubmitChat()}
             disabled={isStreaming || !query.trim()}
           >

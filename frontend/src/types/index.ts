@@ -177,12 +177,12 @@ export interface PersonaGroupOption {
 }
 
 export const PERSONA_BADGE_COLOR: Record<PersonaType, string> = {
-  student: "bg-sky-500/15 text-sky-300 border-sky-400/40",
-  faculty: "bg-violet-500/15 text-violet-300 border-violet-400/40",
-  executive: "bg-amber-400/15 text-amber-200 border-amber-300/45",
-  it_head: "bg-red-500/15 text-red-200 border-red-400/45",
-  dept_head: "bg-emerald-500/15 text-emerald-200 border-emerald-300/45",
-  admin_staff: "bg-orange-500/15 text-orange-200 border-orange-300/45",
+  student: "bg-primary-tint text-primary-hover border-primary",
+  faculty: "bg-primary-tint text-primary-hover border-primary",
+  executive: "bg-primary-tint text-primary-hover border-primary",
+  it_head: "bg-primary-tint text-primary-hover border-primary",
+  dept_head: "bg-primary-tint text-primary-hover border-primary",
+  admin_staff: "bg-primary-tint text-primary-hover border-primary",
 };
 
 export const PERSONA_GROUPS: PersonaGroupOption[] = [

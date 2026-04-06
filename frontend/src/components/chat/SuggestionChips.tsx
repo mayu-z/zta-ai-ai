@@ -24,12 +24,12 @@ export function SuggestionChips({
           type="button"
           onClick={() => onPick(suggestion.text)}
           className={cn(
-            "group shrink-0 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-xs text-text-muted transition-all duration-150",
-            "hover:border-indigo-400/45 hover:bg-indigo-500/12 hover:text-indigo-100"
+            "group shrink-0 rounded-full border border-[#81B78A] bg-[#EEF7EF] px-3 py-1.5 text-xs text-[#1F6B2A] transition-all duration-150",
+            "hover:border-[#2E7D32] hover:bg-[#E4F2E6] hover:text-[#17541F]"
           )}
         >
           <span className="inline-flex items-center gap-1.5">
-            <Sparkles className="h-3 w-3 text-indigo-300/85" />
+            <Sparkles className="h-3 w-3 text-[#2E7D32]" />
             {suggestion.text}
           </span>
         </button>
