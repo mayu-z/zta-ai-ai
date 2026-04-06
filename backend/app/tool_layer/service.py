@@ -4,7 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.connectors.registry import connector_registry
+from app.core.exceptions import ValidationError
 from app.db.models import AuditLog, DataSource
+from app.db.models import DataSourceStatus
 from app.schemas.pipeline import CompiledQueryPlan
 
 
@@ -16,7 +18,36 @@ class ToolLayerService:
         if plan.filters.get("entity_type") == "admin_audit_log":
             return self._get_audit_log(db, plan)
 
-        connector = connector_registry.get(plan)
+        bound_source: DataSource | None = None
+        if plan.data_source_id:
+            bound_source = db.scalar(
+                select(DataSource).where(
+                    DataSource.id == plan.data_source_id,
+                    DataSource.tenant_id == plan.tenant_id,
+                )
+            )
+            if not bound_source:
+                raise ValidationError(
+                    message="Compiled plan references an unknown data source",
+                    code="PLAN_SOURCE_NOT_FOUND",
+                )
+            if bound_source.status != DataSourceStatus.connected:
+                raise ValidationError(
+                    message="Compiled plan references a disconnected data source",
+                    code="PLAN_SOURCE_NOT_CONNECTED",
+                )
+            if bound_source.source_type.value != plan.source_type:
+                raise ValidationError(
+                    message="Compiled plan source type does not match bound data source",
+                    code="PLAN_SOURCE_MISMATCH",
+                )
+        elif plan.source_type not in {"ipeds_claims", "mock_claims"}:
+            raise ValidationError(
+                message="Non-claim source routing requires a bound data_source_id",
+                code="PLAN_SOURCE_BINDING_INCOMPLETE",
+            )
+
+        connector = connector_registry.get(plan, bound_source)
         connector.connect()
         return connector.execute_query(db, plan)
 
