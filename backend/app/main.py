@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
@@ -9,9 +10,11 @@ from fastapi.responses import JSONResponse
 from app.api.routes import admin, auth, chat, pipeline_monitor
 from app.core.config import get_settings
 from app.core.exceptions import ZTAError
+from app.core.redis_client import redis_client
 from app.db.init_db import create_all_tables
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name, version="1.0.0")
 
@@ -32,6 +35,17 @@ def on_startup() -> None:
             'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
         )
     create_all_tables()
+
+    try:
+        redis_client.client.ping()
+        if redis_client.using_in_memory_fallback:
+            logger.warning(
+                "Redis fallback mode is active. Intent cache and pipeline monitor pub/sub will be degraded."
+            )
+        else:
+            logger.info("Redis connection established")
+    except Exception:
+        logger.exception("Redis health check failed during startup")
 
 
 @app.exception_handler(ZTAError)
