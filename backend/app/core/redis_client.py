@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -71,6 +72,8 @@ class RedisProtocol(Protocol):
         ...
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -211,6 +214,9 @@ class RedisClient:
         try:
             import redis
         except Exception:  # noqa: BLE001
+            logger.warning(
+                "redis package unavailable; using in-memory fallback cache/client"
+            )
             return InMemoryRedis()
 
         try:
@@ -218,6 +224,11 @@ class RedisClient:
             candidate.ping()
             return cast(RedisProtocol, candidate)
         except redis.exceptions.RedisError:
+            logger.warning(
+                "Redis connection failed for %s; using in-memory fallback cache/client",
+                self._settings.redis_url,
+                exc_info=True,
+            )
             return InMemoryRedis()
 
     @property
@@ -226,6 +237,10 @@ class RedisClient:
             if self._redis is None:
                 self._redis = self._connect()
             return self._redis
+
+    @property
+    def using_in_memory_fallback(self) -> bool:
+        return isinstance(self.client, InMemoryRedis)
 
     def get_json(self, key: str) -> dict[str, Any] | None:
         payload = self.client.get(key)
