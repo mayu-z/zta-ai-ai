@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZTA Command Console</title>
+  <style>
+    :root {
+      --bg-base: #eef4fb;
+      --bg-elevated: #ffffff;
+      --bg-surface: #f7fbff;
+      --line: #d3e0ed;
+      --text: #12263a;
+      --muted: #5f738b;
+      --success: #22c55e;
+      --error: #ef4444;
+      --processing: #f97316;
+      --accent: #0ea5e9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
+
+    body {
+      font-family: "Space Grotesk", "Trebuchet MS", "Tahoma", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 800px at 20% -10%, #c8def4 0%, transparent 55%),
+        radial-gradient(1000px 700px at 85% 0%, #dce9fb 0%, transparent 50%),
+        var(--bg-base);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      padding: 0.72rem 0.95rem;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+    }
+
+    .brand-block h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: 0.02em;
+    }
+
+    .header-note {
+      margin: 0.3rem 0 0;
+      color: var(--muted);
+      font-size: 0.83rem;
+    }
+
+    .header-note.success {
+      color: var(--success);
+    }
+
+    .header-note.error {
+      color: var(--error);
+    }
+
+    .header-note.processing {
+      color: var(--processing);
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .api-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.28rem;
+      font-size: 0.74rem;
+      color: var(--muted);
+      min-width: 270px;
+    }
+
+    .api-field input {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 0.52rem 0.66rem;
+      background: #ffffff;
+      color: var(--text);
+      outline: none;
+      font: inherit;
+      font-size: 0.9rem;
+    }
+
+    .api-field input:focus,
+    .chat-input-row input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    }
+
+    .btn {
+      border: 1px solid #bcd0e5;
+      background: #f3f8ff;
+      color: var(--text);
+      border-radius: 9px;
+      padding: 0.54rem 0.8rem;
+      font: inherit;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    }
+
+    .btn:hover {
+      border-color: #80a7cf;
+      background: #e8f2ff;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #1f7fd7, #166abf);
+      border-color: #1a74ca;
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(180deg, #258ce9, #1b75d3);
+    }
+
+    .btn-ghost {
+      background: #f7fbff;
+    }
+
+    .btn-danger {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+
+    .btn-danger:hover {
+      background: #fecaca;
+      border-color: #f87171;
+    }
+
+    .btn-small {
+      padding: 0.35rem 0.6rem;
+      font-size: 0.8rem;
+    }
+
+    .auth-menu-wrap {
+      position: relative;
+    }
+
+    .auth-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 0.45rem);
+      min-width: 210px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+      display: none;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .auth-dropdown.open {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .auth-item {
+      border: 0;
+      border-bottom: 1px solid #e1ebf5;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      font: inherit;
+      font-size: 0.86rem;
+      padding: 0.68rem 0.8rem;
+      cursor: pointer;
+    }
+
+    .auth-item:last-child {
+      border-bottom: 0;
+    }
+
+    .auth-item:hover {
+      background: #edf4ff;
+    }
+
+    .auth-item.danger {
+      color: #b91c1c;
+    }
+
+    .auth-item.danger:hover {
+      background: #fee2e2;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(300px, 3fr);
+      gap: 0.72rem;
+      padding: 0.72rem;
+      height: calc(100vh - 73px);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .left-stack {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) minmax(0, 0.54fr);
+      gap: 0.72rem;
+      min-height: 0;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--bg-elevated), var(--bg-surface));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.9rem 1rem 0.7rem;
+      border-bottom: 1px solid #e0eaf5;
+    }
+
+    .panel-title-row h2 {
+      margin: 0;
+      font-size: 0.98rem;
+      letter-spacing: 0.02em;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid #cad9e8;
+      padding: 0.2rem 0.54rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: #f3f8ff;
+    }
+
+    .chip.processing {
+      color: #b45309;
+      border-color: #fdba74;
+      background: rgba(249, 115, 22, 0.16);
+    }
+
+    .chip.success {
+      color: #15803d;
+      border-color: #86efac;
+      background: rgba(34, 197, 94, 0.15);
+    }
+
+    .chip.error {
+      color: #b91c1c;
+      border-color: #fca5a5;
+      background: rgba(239, 68, 68, 0.14);
+    }
+
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .chat-messages {
+      flex: 1;
+      min-height: 0;
+      margin: 0.75rem;
+      padding: 0.7rem;
+      border: 1px solid #d9e5f1;
+      border-radius: 12px;
+      background: #f9fbff;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .chat-message {
+      max-width: 80%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.32rem;
+    }
+
+    .chat-message.user {
+      align-self: flex-end;
+      text-align: right;
+    }
+
+    .chat-message.assistant {
+      align-self: flex-start;
+      text-align: left;
+    }
+
+    .chat-bubble {
+      border-radius: 15px;
+      padding: 0.6rem 0.72rem;
+      border: 1px solid #c4d7ea;
+      background: #edf4ff;
+      line-height: 1.42;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.92rem;
+    }
+
+    .chat-message.user .chat-bubble {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+
+    .chat-message.assistant .chat-bubble {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .message-meta {
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+      padding: 0 0.75rem 0.75rem;
+    }
+
+    .chat-input-row input {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.66rem 0.76rem;
+      background: #ffffff;
+      color: var(--text);
+      outline: none;
+      font: inherit;
+      font-size: 0.94rem;
+    }
+
+    .pipeline-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .legend {
+      display: flex;
+      gap: 0.62rem;
+      flex-wrap: wrap;
+      padding: 0.8rem 1rem 0;
+      font-size: 0.73rem;
+      color: var(--muted);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 1px solid #d6e2ef;
+      border-radius: 999px;
+      padding: 0.2rem 0.45rem;
+      background: #f8fbff;
+    }
+
+    .dot {
+      width: 0.56rem;
+      height: 0.56rem;
+      border-radius: 50%;
+      background: #94a3b8;
+      display: inline-block;
+    }
+
+    .dot.success {
+      background: var(--success);
+    }
+
+    .dot.error {
+      background: var(--error);
+    }
+
+    .dot.processing {
+      background: var(--processing);
+    }
+
+    .pipeline-groups {
+      flex: 1;
+      padding: 0.86rem 0.95rem 0.95rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.72rem;
+      min-height: 0;
+    }
+
+    .stage-group {
+      border: 1px solid #d8e4f0;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 0.64rem;
+    }
+
+    .stage-group h3 {
+      margin: 0 0 0.5rem;
+      color: #3b4f67;
+      font-size: 0.8rem;
+      letter-spacing: 0.02em;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .stage-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      border: 1px solid #d7e4f1;
+      border-left: 4px solid #a2b8cf;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 0.52rem 0.56rem;
+      margin-top: 0.46rem;
+    }
+
+    .stage-row:first-of-type {
+      margin-top: 0;
+    }
+
+    .stage-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .stage-name {
+      font-size: 0.81rem;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stage-status {
+      color: var(--muted);
+      font-size: 0.69rem;
+    }
+
+    .stage-tail {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.44rem;
+      flex-shrink: 0;
+    }
+
+    .stage-latency {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+      min-width: 56px;
+      text-align: right;
+    }
+
+    .stage-dot {
+      width: 0.62rem;
+      height: 0.62rem;
+      border-radius: 999px;
+      background: #94a3b8;
+      box-shadow: 0 0 0 2px #ffffff;
+    }
+
+    .stage-row.processing {
+      border-left-color: var(--processing);
+    }
+
+    .stage-row.processing .stage-dot {
+      background: var(--processing);
+    }
+
+    .stage-row.processing .stage-status,
+    .stage-row.processing .stage-latency {
+      color: #c2410c;
+    }
+
+    .stage-row.success {
+      border-left-color: var(--success);
+    }
+
+    .stage-row.success .stage-dot {
+      background: var(--success);
+    }
+
+    .stage-row.success .stage-status,
+    .stage-row.success .stage-latency {
+      color: #15803d;
+    }
+
+    .stage-row.error {
+      border-left-color: var(--error);
+    }
+
+    .stage-row.error .stage-dot {
+      background: var(--error);
+    }
+
+    .stage-row.error .stage-status,
+    .stage-row.error .stage-latency {
+      color: #b91c1c;
+    }
+
+    .terminal-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .terminal-logs {
+      margin: 0.7rem 0.75rem 0.75rem;
+      flex: 1;
+      min-height: 0;
+      border-radius: 12px;
+      border: 1px solid #132133;
+      background: #020407;
+      padding: 0.72rem;
+      overflow-y: auto;
+      font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+      font-size: 0.8rem;
+      line-height: 1.38;
+    }
+
+    .log-line {
+      color: #c8d3e2;
+      padding: 0.14rem 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .log-line.success {
+      color: var(--success);
+    }
+
+    .log-line.error {
+      color: var(--error);
+    }
+
+    .log-line.processing {
+      color: var(--processing);
+    }
+
+    .log-time {
+      color: #9caec4;
+    }
+
+    @media (max-width: 1100px) {
+      body {
+        overflow: auto;
+      }
+
+      .app-shell {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: calc(100vh - 73px);
+        overflow: visible;
+      }
+
+      .left-stack {
+        grid-template-rows: minmax(320px, 1fr) minmax(220px, 0.58fr);
+      }
+
+      .pipeline-panel {
+        min-height: 300px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body {
+        overflow: auto;
+      }
+
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .app-shell {
+        padding: 0.6rem;
+      }
+
+      .left-stack {
+        grid-template-rows: minmax(300px, 1fr) minmax(210px, 0.55fr);
+      }
+
+      .header-controls {
+        justify-content: stretch;
+      }
+
+      .api-field {
+        min-width: 0;
+        width: 100%;
+      }
+
+      .chat-message {
+        max-width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-block">
+      <h1>ZTA Command Console</h1>
+      <p id="authState" class="header-note">Not authenticated</p>
+    </div>
+
+    <div class="header-controls">
+      <label class="api-field" for="apiBase">
+        <span>API Base URL</span>
+        <input id="apiBase" type="text" value="http://localhost:8000" />
+      </label>
+      <button id="btnHealth" class="btn btn-ghost" type="button">Health</button>
+
+      <div class="auth-menu-wrap">
+        <button id="btnAuth" class="btn btn-primary" type="button">Auth</button>
+        <div id="authDropdown" class="auth-dropdown" role="menu">
+          <button class="auth-item" data-email="executive@ipeds.local" type="button">IPEDS Executive</button>
+          <button class="auth-item" data-email="admissions@ipeds.local" type="button">Admissions Admin</button>
+          <button class="auth-item" data-email="ithead@ipeds.local" type="button">IPEDS IT Head</button>
+          <button class="auth-item danger" data-action="clear" type="button">Clear Token</button>
+          <button class="auth-item danger" data-action="logout" type="button">Logout</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="left-stack">
+      <section class="panel chat-panel">
+        <div class="panel-title-row">
+          <h2>Chat Interface</h2>
+          <span id="chatStatus" class="chip">Ready</span>
+        </div>
+        <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+        <form id="chatForm" class="chat-input-row">
+          <input id="chatInput" type="text" placeholder="Ask the ZTA assistant..." autocomplete="off" />
+          <button id="btnSend" class="btn btn-primary" type="submit">Send</button>
+        </form>
+      </section>
+
+      <section class="panel terminal-panel">
+        <div class="panel-title-row">
+          <h2>API Response / Errors Terminal</h2>
+          <button id="btnClearLogs" class="btn btn-ghost btn-small" type="button">Clear</button>
+        </div>
+        <div id="terminalLogs" class="terminal-logs"></div>
+      </section>
+    </section>
+
+    <aside class="panel pipeline-panel">
+      <div class="panel-title-row">
+        <h2>Pipeline Stages</h2>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="dot success"></span>Success</span>
+        <span class="legend-item"><span class="dot processing"></span>Processing</span>
+        <span class="legend-item"><span class="dot error"></span>Failed</span>
+      </div>
+      <div id="pipelineGroups" class="pipeline-groups"></div>
+    </aside>
+  </main>
+
+  <script>
+    const STATUS = {
+      success: "success",
+      error: "error",
+      processing: "processing",
+      idle: "idle"
+    };
+
+    const PIPELINE_GROUPS = [
+      {
+        title: "Input And Context",
+        stages: [
+          { key: "history_user_message", label: "History User Message" },
+          { key: "it_head_check", label: "IT Head Check" }
+        ]
+      },
+      {
+        title: "Interpreter Layer",
+        stages: [
+          { key: "interpreter", label: "Interpreter Layer" },
+          { key: "intent_cache", label: "Intent Cache" },
+          { key: "slm_render", label: "SLM Render" }
+        ]
+      },
+      {
+        title: "Policy And Security",
+        stages: [
+          { key: "output_guard", label: "Output Guard" },
+          { key: "compiler", label: "Compiler" },
+          { key: "policy_authorization", label: "Policy Authorization" }
+        ]
+      },
+      {
+        title: "Execution And Output",
+        stages: [
+          { key: "tool_execution", label: "Tool Execution" },
+          { key: "field_masking", label: "Field Masking" },
+          { key: "detokenization", label: "Detokenization" }
+        ]
+      },
+      {
+        title: "Persistence And Audit",
+        stages: [
+          { key: "cache_storage", label: "Cache Storage" },
+          { key: "history_assistant_message", label: "History Assistant Message" },
+          { key: "audit_logging", label: "Audit Logging" }
+        ]
+      }
+    ];
+
+    const state = {
+      token: localStorage.getItem("zta_token") || "",
+      activeUser: "",
+      stageNodes: new Map()
+    };
+
+    const els = {
+      apiBase: document.getElementById("apiBase"),
+      authState: document.getElementById("authState"),
+      btnHealth: document.getElementById("btnHealth"),
+      btnAuth: document.getElementById("btnAuth"),
+      authDropdown: document.getElementById("authDropdown"),
+      chatStatus: document.getElementById("chatStatus"),
+      chatMessages: document.getElementById("chatMessages"),
+      chatForm: document.getElementById("chatForm"),
+      chatInput: document.getElementById("chatInput"),
+      btnSend: document.getElementById("btnSend"),
+      pipelineGroups: document.getElementById("pipelineGroups"),
+      terminalLogs: document.getElementById("terminalLogs"),
+      btnClearLogs: document.getElementById("btnClearLogs")
+    };
+
+    function nowTime() {
+      return new Date().toLocaleTimeString([], { hour12: false });
+    }
+
+    function trimPayload(payload) {
+      const raw = typeof payload === "string" ? payload : JSON.stringify(payload);
+      return raw.length > 260 ? raw.slice(0, 257) + "..." : raw;
+    }
+
+    function appendLog(type, message, payload) {
+      const line = document.createElement("div");
+      line.className = `log-line ${type}`;
+      const details = payload === undefined ? "" : ` | ${trimPayload(payload)}`;
+      const time = document.createElement("span");
+      time.className = "log-time";
+      time.textContent = `[${nowTime()}] `;
+      line.appendChild(time);
+      line.append(`${message}${details}`);
+      els.terminalLogs.appendChild(line);
+      els.terminalLogs.scrollTop = els.terminalLogs.scrollHeight;
+    }
+
+    function setAuthText(text, mode) {
+      els.authState.textContent = text;
+      els.authState.className = `header-note${mode ? ` ${mode}` : ""}`;
+    }
+
+    function setChatStatus(text, mode) {
+      els.chatStatus.textContent = text;
+      els.chatStatus.className = `chip${mode ? ` ${mode}` : ""}`;
+    }
+
+    function saveToken(token) {
+      state.token = token || "";
+      localStorage.setItem("zta_token", state.token);
+    }
+
+    function baseUrl() {
+      return (els.apiBase.value || "").trim().replace(/\/$/, "") || "http://localhost:8000";
+    }
+
+    async function callApi(path, options = {}) {
+      const method = options.method || "GET";
+      const url = `${baseUrl()}${path}`;
+      const headers = { ...(options.headers || {}) };
+
+      if (!(options.body instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
+      }
+      if (state.token) {
+        headers.Authorization = `Bearer ${state.token}`;
+      }
+
+      const request = {
+        method,
+        headers
+      };
+
+      if (options.body !== undefined) {
+        request.body = options.body instanceof FormData ? options.body : JSON.stringify(options.body);
+      }
+
+      appendLog(STATUS.processing, `${method} ${path}`);
+      const res = await fetch(url, request);
+      const text = await res.text();
+
+      let payload = text;
+      try {
+        payload = text ? JSON.parse(text) : {};
+      } catch (err) {
+        payload = text;
+      }
+
+      if (!res.ok) {
+        appendLog(STATUS.error, `${res.status} ${res.statusText} ${path}`, payload);
+        throw new Error((payload && payload.error) || `Request failed: ${res.status}`);
+      }
+
+      appendLog(STATUS.success, `${res.status} ${res.statusText} ${path}`, payload);
+      return payload;
+    }
+
+    function closeAuthDropdown() {
+      els.authDropdown.classList.remove("open");
+    }
+
+    function toggleAuthDropdown(event) {
+      event.stopPropagation();
+      els.authDropdown.classList.toggle("open");
+    }
+
+    async function loginAs(email) {
+      closeAuthDropdown();
+      setAuthText(`Authenticating ${email}...`, STATUS.processing);
+
+      try {
+        const payload = await callApi("/auth/google", {
+          method: "POST",
+          body: { google_token: `mock:${email}` }
+        });
+
+        const token = payload.jwt || "";
+        saveToken(token);
+        state.activeUser = payload.user && payload.user.email ? payload.user.email : email;
+        setAuthText(`Authenticated: ${state.activeUser}`, STATUS.success);
+        appendLog(STATUS.success, `Auth success for ${state.activeUser}`);
+      } catch (err) {
+        saveToken("");
+        state.activeUser = "";
+        setAuthText("Authentication failed", STATUS.error);
+        appendLog(STATUS.error, `Auth failed for ${email}: ${err.message}`);
+      }
+    }
+
+    function clearToken() {
+      closeAuthDropdown();
+      saveToken("");
+      state.activeUser = "";
+      setAuthText("Token cleared", STATUS.error);
+      appendLog(STATUS.error, "Local token cleared");
+    }
+
+    async function logout() {
+      closeAuthDropdown();
+      appendLog(STATUS.processing, "Logout requested");
+      try {
+        if (state.token) {
+          await callApi("/auth/logout", { method: "POST" });
+        }
+      } catch (err) {
+        appendLog(STATUS.error, `Logout API error: ${err.message}`);
+      }
+
+      saveToken("");
+      state.activeUser = "";
+      setAuthText("Not authenticated", "");
+      appendLog(STATUS.success, "Session cleared");
+    }
+
+    async function checkHealth() {
+      try {
+        const payload = await callApi("/health");
+        appendLog(STATUS.success, `Health: ${payload.status || "ok"}`);
+      } catch (err) {
+        appendLog(STATUS.error, `Health check failed: ${err.message}`);
+      }
+    }
+
+    function createStageRow(stage) {
+      const row = document.createElement("div");
+      row.className = "stage-row";
+      row.dataset.stage = stage.key;
+
+      const main = document.createElement("div");
+      main.className = "stage-main";
+
+      const name = document.createElement("div");
+      name.className = "stage-name";
+      name.textContent = stage.label;
+
+      const status = document.createElement("div");
+      status.className = "stage-status";
+      status.textContent = "Waiting";
+
+      main.append(name, status);
+
+      const tail = document.createElement("div");
+      tail.className = "stage-tail";
+
+      const latency = document.createElement("div");
+      latency.className = "stage-latency";
+      latency.textContent = "--";
+
+      const dot = document.createElement("span");
+      dot.className = "stage-dot";
+
+      tail.append(latency, dot);
+      row.append(main, tail);
+
+      state.stageNodes.set(stage.key, { row, status, latency });
+      return row;
+    }
+
+    function renderPipeline() {
+      els.pipelineGroups.innerHTML = "";
+      state.stageNodes.clear();
+
+      PIPELINE_GROUPS.forEach((group) => {
+        const groupEl = document.createElement("section");
+        groupEl.className = "stage-group";
+
+        const title = document.createElement("h3");
+        title.textContent = group.title;
+        groupEl.appendChild(title);
+
+        group.stages.forEach((stage) => {
+          groupEl.appendChild(createStageRow(stage));
+        });
+
+        els.pipelineGroups.appendChild(groupEl);
+      });
+    }
+
+    function setStage(stageKey, status, latencyMs, detailText) {
+      const nodes = state.stageNodes.get(stageKey);
+      if (!nodes) return;
+
+      nodes.row.classList.remove(STATUS.processing, STATUS.success, STATUS.error);
+      if (status && status !== STATUS.idle) {
+        nodes.row.classList.add(status);
+      }
+
+      const labelByStatus = {
+        [STATUS.processing]: "Processing",
+        [STATUS.success]: "Success",
+        [STATUS.error]: "Failed"
+      };
+
+      nodes.status.textContent = detailText || labelByStatus[status] || "Waiting";
+      nodes.latency.textContent = Number.isFinite(latencyMs) ? `${latencyMs}ms` : "--";
+    }
+
+    function resetPipeline() {
+      state.stageNodes.forEach((_, key) => {
+        setStage(key, STATUS.idle, null, "Waiting");
+      });
+    }
+
+    function wait(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function addChatMessage(role, text, latencyMs) {
+      const item = document.createElement("article");
+      item.className = `chat-message ${role}`;
+
+      const bubble = document.createElement("div");
+      bubble.className = "chat-bubble";
+      bubble.textContent = text;
+
+      const meta = document.createElement("div");
+      meta.className = "message-meta";
+      meta.textContent = `${nowTime()} | ${latencyMs}ms`;
+
+      item.append(bubble, meta);
+      els.chatMessages.appendChild(item);
+      els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+    }
+
+    async function simulatePipeline() {
+      const flatStages = PIPELINE_GROUPS.flatMap((group) => group.stages);
+      let totalLatency = 0;
+
+      resetPipeline();
+
+      for (const stage of flatStages) {
+        setStage(stage.key, STATUS.processing, null, "Processing");
+        appendLog(STATUS.processing, `Stage started: ${stage.label}`);
+
+        const stepLatency = randomInt(25, 140);
+        await wait(stepLatency);
+        totalLatency += stepLatency;
+
+        setStage(stage.key, STATUS.success, stepLatency, "Success");
+        appendLog(STATUS.success, `${stage.label} completed`, { latency_ms: stepLatency });
+      }
+
+      return {
+        totalLatency
+      };
+    }
+
+    function streamChatResponse(query) {
+      return new Promise((resolve, reject) => {
+        if (!state.token) {
+          reject(new Error("Login first using the Auth dropdown."));
+          return;
+        }
+
+        const wsBase = baseUrl().replace(/^http/, "ws");
+        const ws = new WebSocket(`${wsBase}/chat/stream?token=${encodeURIComponent(state.token)}`);
+        const startedAt = performance.now();
+        let settled = false;
+        let responseText = "";
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ query }));
+        };
+
+        ws.onmessage = (event) => {
+          let frame;
+          try {
+            frame = JSON.parse(event.data);
+          } catch (err) {
+            return;
+          }
+
+          if (frame.type === "token") {
+            if (frame.content) {
+              responseText += frame.content;
+            }
+            return;
+          }
+
+          if (frame.type === "done") {
+            if (settled) return;
+            settled = true;
+            ws.close();
+            resolve({
+              text: responseText.trim() || "No response content returned.",
+              source: frame.source || "unknown",
+              latencyMs: Number.isFinite(frame.latency_ms) ? frame.latency_ms : Math.round(performance.now() - startedAt)
+            });
+            return;
+          }
+
+          if (frame.type === "error") {
+            if (settled) return;
+            settled = true;
+            ws.close();
+            reject(new Error(frame.message || "Chat stream error"));
+          }
+        };
+
+        ws.onerror = () => {
+          if (settled) return;
+          settled = true;
+          reject(new Error("WebSocket connection failed"));
+        };
+
+        ws.onclose = () => {
+          if (settled) return;
+          settled = true;
+          reject(new Error("Chat stream closed before completion"));
+        };
+      });
+    }
+
+    async function handleChatSubmit(event) {
+      event.preventDefault();
+      const query = els.chatInput.value.trim();
+      if (!query) return;
+
+      els.chatInput.value = "";
+      addChatMessage("user", query, randomInt(8, 26));
+      appendLog(STATUS.processing, "User query submitted", query);
+      setChatStatus("Processing", STATUS.processing);
+
+      els.chatInput.disabled = true;
+      els.btnSend.disabled = true;
+
+      const pipelinePromise = simulatePipeline();
+
+      try {
+        const [response, pipeline] = await Promise.all([streamChatResponse(query), pipelinePromise]);
+        const totalLatency = Number.isFinite(response.latencyMs) && response.latencyMs > 0
+          ? response.latencyMs
+          : pipeline.totalLatency;
+
+        addChatMessage("assistant", response.text, totalLatency);
+        setChatStatus("Delivered", STATUS.success);
+        appendLog(STATUS.success, "Response sent", { latency_ms: totalLatency, source: response.source });
+      } catch (err) {
+        await pipelinePromise.catch(() => {});
+        setStage("policy_authorization", STATUS.error, null, "Failed");
+        setChatStatus("Error", STATUS.error);
+        addChatMessage("assistant", `Unable to complete request: ${err.message}`, randomInt(15, 45));
+        appendLog(STATUS.error, `Chat request failed: ${err.message}`);
+      } finally {
+        els.chatInput.disabled = false;
+        els.btnSend.disabled = false;
+        els.chatInput.focus();
+      }
+    }
+
+    function bindEvents() {
+      els.btnAuth.addEventListener("click", toggleAuthDropdown);
+      els.btnHealth.addEventListener("click", checkHealth);
+      els.chatForm.addEventListener("submit", handleChatSubmit);
+      els.btnClearLogs.addEventListener("click", () => {
+        els.terminalLogs.innerHTML = "";
+        appendLog(STATUS.processing, "Terminal cleared");
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".auth-menu-wrap")) {
+          closeAuthDropdown();
+        }
+      });
+
+      els.authDropdown.addEventListener("click", async (event) => {
+        const item = event.target.closest("button");
+        if (!item) return;
+
+        const email = item.getAttribute("data-email");
+        const action = item.getAttribute("data-action");
+
+        if (email) {
+          await loginAs(email);
+          return;
+        }
+
+        if (action === "clear") {
+          clearToken();
+          return;
+        }
+
+        if (action === "logout") {
+          await logout();
+        }
+      });
+    }
+
+    function hydrateState() {
+      if (state.token) {
+        setAuthText("Token loaded from local storage", STATUS.success);
+      } else {
+        setAuthText("Not authenticated", "");
+      }
+    }
+
+    function bootstrap() {
+      renderPipeline();
+      resetPipeline();
+      bindEvents();
+      hydrateState();
+      addChatMessage("assistant", "ZTA assistant online. Ask a query to fetch a real backend response.", 0);
+      appendLog(STATUS.success, "UI initialized");
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>
