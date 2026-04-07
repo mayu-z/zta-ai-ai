@@ -41,7 +41,7 @@ export function AuditTable({ items }: { items: AuditLogItem[] }) {
           <tr className="bg-surface text-xs uppercase tracking-wide text-text-muted">
             <th className="px-3 py-2 font-medium">Time</th>
             <th className="px-3 py-2 font-medium">User</th>
-            <th className="px-3 py-2 font-medium">Query</th>
+            <th className="px-3 py-2 font-medium">Queryyy</th>
             <th className="px-3 py-2 font-medium">Domains</th>
             <th className="px-3 py-2 font-medium">Status</th>
             <th className="px-3 py-2 font-medium">Latency</th>
