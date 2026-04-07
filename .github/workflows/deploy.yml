@@ -1,19 +1,23 @@
 name: CD Deploy to EC2
 
 on:
-  # Trigger when backend CI completes.
   workflow_run:
     workflows:
       - Backend CI - FastAPI + Celery
+    branches: [ec2-main]        # ← ADD THIS: only watch ec2-main branch CI runs
     types:
       - completed
-  # Allow manual trigger for debugging/emergency deploys.
   workflow_dispatch:
 
 jobs:
   deploy:
-    # Auto deploy only after successful CI on ec2-main pushes; allow manual runs too.
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'ec2-main') }}
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'ec2-main'
+      )
     runs-on: ubuntu-latest
 
     steps:
@@ -34,11 +38,8 @@ jobs:
       - name: Health check after deploy
         run: |
           set -euo pipefail
-
-          # Give services time to boot before probing.
           sleep 20
 
-          # Backend health: must contain status ok.
           backend_response="$(curl -fsS http://3.25.225.250:8000/health || true)"
           if [[ -z "$backend_response" ]]; then
             echo "::error::Backend health endpoint is unreachable."
@@ -49,7 +50,6 @@ jobs:
             exit 1
           fi
 
-          # Frontend health: expect HTTP 200.
           frontend_code="$(curl -sS -o /dev/null -w "%{http_code}" http://3.25.225.250:8080 || true)"
           if [[ "$frontend_code" != "200" ]]; then
             echo "::error::Frontend health check failed. Expected HTTP 200, got $frontend_code"
