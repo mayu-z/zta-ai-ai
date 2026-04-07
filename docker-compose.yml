@@ -92,7 +92,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://3.25.207.238:8000
+      NEXT_PUBLIC_API_BASE_URL: http://3.106.161.114:8000
     ports:
       - "8080:3000"
     depends_on:

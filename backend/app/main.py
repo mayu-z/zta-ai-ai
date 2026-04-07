@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title=settings.app_name, version="1.0.0")
 
 cors_allowed_origins = [
-    "http://3.25.207.238:8080",
+    "http://3.106.161.114:8080",
     "http://localhost:8080",
 ]
 

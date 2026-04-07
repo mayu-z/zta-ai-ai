@@ -68,7 +68,7 @@ export function AuthSection({
                 className="rounded-xl border border-border bg-bg px-3 py-2 text-sm text-text outline-none transition focus:border-primary"
                 value={apiBase}
                 onChange={(event) => onApiBaseChange(event.target.value)}
-                placeholder="http://3.25.207.238:8000"
+                placeholder="http://3.106.161.114:8000"
               />
             </label>
             <button
