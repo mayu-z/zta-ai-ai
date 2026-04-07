@@ -96,7 +96,7 @@ Run `scripts/postgres_hardening.sql` in production to enforce DB-level append-on
 | `executive@ipeds.local` | Executive | Aggregate campus and cross-domain KPI views |
 | `admissions@ipeds.local` | Admin Staff | Admissions office scoped summaries |
 | `finance@ipeds.local` | Admin Staff | Finance office scoped summaries |
-| `hr@ipeds.local` | Admin Staff | HR office scoped summaries |
+| `hr@ipeds.local` | Admin Staff | HR office scoped summaries|
 | `exam@ipeds.local` | Admin Staff | Examination office scoped summaries |
 | `ithead@ipeds.local` | IT Head | Admin-domain only (business chat blocked) |
 | `faculty@ipeds.local` | Faculty | Course-scoped faculty data |
