@@ -7,7 +7,7 @@ import type {
 } from "@/types";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://3.25.207.238:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://3.106.161.114:8000";
 
 export class ApiError extends Error {
   status: number;
