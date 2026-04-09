@@ -6,8 +6,7 @@ import type {
   DataSourceItem,
 } from "@/types";
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://3.25.225.250:8000";
+export const API_BASE_URL = "/api";
 
 export class ApiError extends Error {
   status: number;

@@ -92,10 +92,22 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://3.25.225.250:8000
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
     ports:
-      - "8080:3000"
+      - "3000:3000"
     depends_on:
+      - api
+    networks:
+      - zta-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
       - api
     networks:
       - zta-network
