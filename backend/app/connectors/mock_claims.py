@@ -83,34 +83,53 @@ class MockClaimsConnector(ConnectorBase):
 
         result: dict[str, Any] = {}
         for claim_key, values in grouped.items():
-            if plan.requires_aggregate and values:
-                if all(isinstance(v, (int, float)) for v in values if v is not None):
-                    # Sum counts and totals, average everything else
-                    if (
-                        claim_key.endswith("count")
-                        or claim_key.startswith("count_")
-                        or claim_key.startswith("total_")
-                        or claim_key.endswith("_total")
-                    ):
-                        result[claim_key] = int(
-                            sum(v for v in values if isinstance(v, (int, float)))
-                        )
-                    else:
-                        numeric_values = [
-                            float(v) for v in values if isinstance(v, (int, float))
-                        ]
-                        result[claim_key] = round(
-                            sum(numeric_values) / max(len(numeric_values), 1), 2
-                        )
-                else:
-                    result[claim_key] = values[0]
-            else:
-                result[claim_key] = values[0]
+            result[claim_key] = self._reduce_values(
+                claim_key=claim_key,
+                values=values,
+                requires_aggregate=plan.requires_aggregate,
+            )
 
         for expected_key in plan.select_claim_keys:
             result.setdefault(expected_key, None)
 
         return result
+
+    @staticmethod
+    def _reduce_values(
+        claim_key: str,
+        values: list[Any],
+        requires_aggregate: bool,
+    ) -> Any:
+        if not values:
+            return None
+
+        if not requires_aggregate:
+            return values[0]
+
+        non_null = [value for value in values if value is not None]
+        numeric_values = [value for value in non_null if isinstance(value, (int, float))]
+
+        average_keys = {
+            "function_metric",
+            "attendance_percentage",
+            "avg_attendance",
+            "gpa",
+            "pass_rate",
+        }
+
+        # Keep reduction deterministic and schema-agnostic: numeric aggregates sum,
+        # non-numeric values pass through first non-null entry.
+        if non_null and len(numeric_values) == len(non_null):
+            if claim_key in average_keys:
+                avg = sum(float(value) for value in numeric_values) / len(numeric_values)
+                return round(avg, 2)
+
+            total = sum(float(value) for value in numeric_values)
+            if all(isinstance(value, int) for value in numeric_values):
+                return int(total)
+            return round(total, 2)
+
+        return non_null[0] if non_null else None
 
 
 mock_claims_connector = MockClaimsConnector()

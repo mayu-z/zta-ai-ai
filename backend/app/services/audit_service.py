@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import socket
 import time
 from datetime import UTC, datetime
@@ -25,6 +26,14 @@ class AuditService:
         finally:
             db.close()
 
+    @staticmethod
+    def _is_truthy(value: str | None) -> bool:
+        return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+    def _use_inline_task_execution(self) -> bool:
+        # CI tests set this to force synchronous Celery behavior.
+        return self._is_truthy(os.getenv("CELERY_TASK_ALWAYS_EAGER"))
+
     def _broker_is_reachable(self) -> bool:
         now = time.time()
         if now < self._broker_unavailable_until:
@@ -44,6 +53,10 @@ class AuditService:
             return False
 
     def enqueue(self, event: AuditEvent) -> None:
+        if self._use_inline_task_execution():
+            write_audit_event_task(event.model_dump(mode="json"))
+            return
+
         if not self._broker_is_reachable():
             self._persist_sync(event)
             return

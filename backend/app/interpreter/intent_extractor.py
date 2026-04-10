@@ -4,6 +4,7 @@ import dataclasses
 import re
 from datetime import UTC, datetime
 
+from app.core.exceptions import ValidationError
 from app.schemas.pipeline import InterpretedIntent
 
 
@@ -15,160 +16,50 @@ class IntentRule:
     slot_keys: tuple[str, ...]
     keywords: tuple[str, ...]
     requires_aggregation: bool = False
+    persona_types: tuple[str, ...] = ()
+    is_default: bool = False
+    priority: int = 100
 
 
-INTENT_RULES: tuple[IntentRule, ...] = (
-    # IPEDS institution-level data (always available)
-    # More specific intents first, then general ones
-    IntentRule(
-        name="institution_size_distribution",
-        domain="campus",
-        entity_type="institution_size_summary",
-        slot_keys=("small_count", "medium_count", "large_count", "total_institutions"),
-        keywords=("size", "small", "medium", "large", "distribution"),
-        requires_aggregation=True,
-    ),
-    IntentRule(
-        name="institution_demographics",
-        domain="campus",
-        entity_type="institution_demographics",
-        slot_keys=("hbcu_count", "public_count", "private_count", "total_institutions"),
-        keywords=(
-            "hbcu",
-            "public",
-            "private",
-            "demographics",
-            "sector",
-            "control",
-            "type",
-        ),
-        requires_aggregation=True,
-    ),
-    IntentRule(
-        name="executive_enrollment_overview",
-        domain="campus",
-        entity_type="institution_enrollment_summary",
-        slot_keys=("total_enrollment", "institution_count"),
-        keywords=(
-            "enrollment",
-            "enrolment",
-            "headcount",
-            "student count",
-            "students",
-            "enrolled",
-        ),
-        requires_aggregation=True,
-    ),
-    IntentRule(
-        name="executive_kpi",
-        domain="campus",
-        entity_type="executive_summary",
-        slot_keys=("kpi_value", "trend_delta"),
-        keywords=("kpi", "trend", "campus kpi", "overview", "metrics", "performance"),
-        requires_aggregation=True,
-    ),
-    IntentRule(
-        name="admissions_overview",
-        domain="admissions",
-        entity_type="admin_function_summary",
-        slot_keys=("function_metric", "record_count"),
-        keywords=(
-            "admission",
-            "admissions",
-            "applicant",
-            "applicants",
-            "open admission",
-        ),
-        requires_aggregation=True,
-    ),
-    IntentRule(
-        name="institution_profile",
-        domain="admin",
-        entity_type="institution_catalog",
-        slot_keys=("profile",),
-        keywords=(
-            "institution profile",
-            "university profile",
-            "college profile",
-            "school profile",
-            "info",
-            "details",
-        ),
-        requires_aggregation=False,
-    ),
-    # Student-level data (requires tenant's own database, not IPEDS)
-    IntentRule(
-        name="student_attendance",
-        domain="academic",
-        entity_type="attendance_summary",
-        slot_keys=("attendance_percentage", "subject_count"),
-        keywords=("attendance", "present"),
-    ),
-    IntentRule(
-        name="student_grades",
-        domain="academic",
-        entity_type="grade_summary",
-        slot_keys=("gpa", "passed_subjects"),
-        keywords=("grade", "gpa", "result"),
-    ),
-    IntentRule(
-        name="student_fee",
-        domain="finance",
-        entity_type="fee_summary",
-        slot_keys=("fee_balance", "due_date"),
-        keywords=("fee", "balance", "payment"),
-    ),
-    IntentRule(
-        name="faculty_course_attendance",
-        domain="academic",
-        entity_type="faculty_course_summary",
-        slot_keys=("course_count", "avg_attendance"),
-        keywords=("my courses", "course attendance", "course"),
-    ),
-    IntentRule(
-        name="department_metrics",
-        domain="department",
-        entity_type="department_summary",
-        slot_keys=("department_metric", "student_count"),
-        keywords=("department", "dept", "faculty performance"),
-    ),
-    IntentRule(
-        name="admin_function_report",
-        domain="finance",
-        entity_type="admin_function_summary",
-        slot_keys=("function_metric", "record_count"),
-        keywords=("finance", "payments", "applications", "records"),
-    ),
-    IntentRule(
-        name="admin_data_sources",
-        domain="admin",
-        entity_type="admin_data_sources",
-        slot_keys=("sources",),
-        keywords=(
-            "data-sources",
-            "data sources",
-            "data-source",
-            "data source",
-            "datasource",
-            "datasources",
-            "connectors",
-            "connections",
-        ),
-    ),
-    IntentRule(
-        name="admin_audit_log",
-        domain="admin",
-        entity_type="admin_audit_log",
-        slot_keys=("entries",),
-        keywords=(
-            "audit-log",
-            "audit log",
-            "audit",
-            "activity log",
-            "logs",
-        ),
-    ),
-)
+INTENT_RULES: tuple[IntentRule, ...] = ()
+
+
+def _keyword_pattern(keyword: str) -> str:
+    normalized = keyword.strip().lower()
+    if not normalized:
+        return r"$^"
+
+    if " " in normalized:
+        return rf"\b{re.escape(normalized)}\b"
+
+    if re.fullmatch(r"[a-z]+", normalized):
+        if normalized.endswith("y") and len(normalized) > 3:
+            stem = re.escape(normalized[:-1])
+            return rf"\b(?:{re.escape(normalized)}|{stem}ies)\b"
+        if normalized.endswith("s"):
+            return rf"\b{re.escape(normalized)}\b"
+        return rf"\b{re.escape(normalized)}(?:s|es)?\b"
+
+    return rf"\b{re.escape(normalized)}\b"
+
+
+def _keyword_matches(lower_prompt: str, keyword: str) -> bool:
+    return bool(re.search(_keyword_pattern(keyword), lower_prompt))
+
+
+def _keyword_match_stats(lower_prompt: str, keywords: tuple[str, ...]) -> tuple[int, int]:
+    """Return (match_count, first_match_index) for candidate rule scoring."""
+    match_count = 0
+    first_index = len(lower_prompt) + 1
+
+    for keyword in keywords:
+        match = re.search(_keyword_pattern(keyword), lower_prompt)
+        if not match:
+            continue
+        match_count += 1
+        first_index = min(first_index, match.start())
+
+    return match_count, first_index
 
 
 def _extract_filters(prompt: str) -> dict[str, str]:
@@ -196,88 +87,119 @@ def _extract_filters(prompt: str) -> dict[str, str]:
     return filters
 
 
+def _persona_matches(rule: IntentRule, persona_type: str) -> bool:
+    if not rule.persona_types:
+        return True
+    return persona_type in rule.persona_types
+
+
+def _select_fallback_rule(
+    rules: tuple[IntentRule, ...],
+    detected_domains: list[str],
+    persona_type: str,
+) -> IntentRule:
+    in_domain = [
+        rule
+        for rule in rules
+        if rule.domain in detected_domains and _persona_matches(rule, persona_type)
+    ]
+    default_in_domain = next((rule for rule in in_domain if rule.is_default), None)
+    if default_in_domain is not None:
+        return default_in_domain
+    if in_domain:
+        return in_domain[0]
+
+    by_persona = [rule for rule in rules if _persona_matches(rule, persona_type)]
+    default_for_persona = next((rule for rule in by_persona if rule.is_default), None)
+    if default_for_persona is not None:
+        return default_for_persona
+    if by_persona:
+        return by_persona[0]
+
+    return rules[0]
+
+
 def extract_intent(
     raw_prompt: str,
     sanitized_prompt: str,
     aliased_prompt: str,
     detected_domains: list[str],
     persona_type: str,
+    intent_rules: tuple[IntentRule, ...] | None = None,
+    detection_keywords: dict[str, dict[str, list[str]]] | None = None,
 ) -> InterpretedIntent:
     lower_prompt = aliased_prompt.lower()
+    rules = intent_rules or ()
+    detection_keywords = detection_keywords or {}
 
-    # Persona-specific intent mapping for ambiguous queries
-    PERSONA_INTENT_OVERRIDES: dict[str, dict[str, str]] = {
-        "faculty": {
-            # Faculty asking about "attendance" or "courses" should get faculty intent
-            "attendance": "faculty_course_attendance",
-            "course": "faculty_course_attendance",
-            "my courses": "faculty_course_attendance",
-        },
-        "student": {
-            # Students asking about "attendance" should get student intent
-            "attendance": "student_attendance",
-            "grade": "student_grades",
-            "gpa": "student_grades",
-            "fee": "student_fee",
-        },
-        "dept_head": {
-            # Dept heads asking about metrics should get department intent
-            "department": "department_metrics",
-            "faculty": "department_metrics",
-        },
-    }
+    if not rules:
+        raise ValidationError(
+            message="No intent rules are configured for this tenant",
+            code="INTENT_RULES_NOT_CONFIGURED",
+        )
 
-    # Check for persona-specific overrides first
-    overrides = PERSONA_INTENT_OVERRIDES.get(persona_type, {})
-    for keyword, intent_name in overrides.items():
-        if keyword in lower_prompt:
-            rule = next((r for r in INTENT_RULES if r.name == intent_name), None)
-            if rule and rule.domain in detected_domains:
-                return _build_intent(rule, raw_prompt, sanitized_prompt, aliased_prompt, 
-                                     detected_domains, lower_prompt)
+    # Try to match a specific intent rule by weighted keyword scoring.
+    # This avoids first-match bias when multiple rules share common keywords.
+    rule: IntentRule | None = None
+    best_score: tuple[int, int, int, int, int] | None = None
 
-    # Try to match a specific intent rule by keywords
-    rule = None
-    for candidate in INTENT_RULES:
+    # Targeted safety override for grade-vs-attendance collisions.
+    # If grade semantics are explicit, prefer grade intent over generic subject/attendance rules.
+    # Grade markers loaded from database; allows tenant-specific customization.
+    grade_markers = detection_keywords.get("student_grades", {}).get("grade_marker", [])
+    has_grade_marker = any(marker in lower_prompt for marker in grade_markers)
+
+    if has_grade_marker and persona_type == "student":
+        forced = next(
+            (
+                candidate
+                for candidate in rules
+                if candidate.name == "student_grades"
+                and candidate.domain in detected_domains
+                and _persona_matches(candidate, persona_type)
+            ),
+            None,
+        )
+        if forced is not None:
+            return _build_intent(
+                forced,
+                raw_prompt,
+                sanitized_prompt,
+                aliased_prompt,
+                detected_domains,
+                lower_prompt,
+            )
+
+    for candidate in rules:
         # Skip rules that don't match detected domains
         if candidate.domain not in detected_domains:
             continue
-        if any(keyword in lower_prompt for keyword in candidate.keywords):
-            rule = candidate
-            break
+        if not _persona_matches(candidate, persona_type):
+            continue
 
-    # If no specific rule matched, use persona-aware fallbacks
+        match_count, first_index = _keyword_match_stats(lower_prompt, candidate.keywords)
+        if match_count == 0:
+            continue
+
+        # Score order:
+        # 1) more matched keywords, 2) prefer specific (non-default) rules,
+        # 3) earlier keyword mention, 4) lower rule priority number,
+        # 5) more rule keywords as a weak specificity tie-break.
+        candidate_score = (
+            match_count,
+            1 if not candidate.is_default else 0,
+            -first_index,
+            -candidate.priority,
+            len(candidate.keywords),
+        )
+
+        if best_score is None or candidate_score > best_score:
+            best_score = candidate_score
+            rule = candidate
+
+    # If no specific rule matched, choose a safe fallback from configured rules.
     if rule is None:
-        if persona_type == "executive":
-            # For executives, default to enrollment overview or KPI
-            if any(
-                kw in lower_prompt
-                for kw in ("enrollment", "enrolment", "headcount", "student count")
-            ):
-                rule = next(
-                    r for r in INTENT_RULES if r.name == "executive_enrollment_overview"
-                )
-            else:
-                rule = next(r for r in INTENT_RULES if r.name == "executive_kpi")
-        else:
-            # Use domain-specific fallbacks that map to existing data
-            domain = detected_domains[0] if detected_domains else "academic"
-            DOMAIN_FALLBACK_INTENTS: dict[str, str] = {
-                "campus": "executive_kpi",
-                "admissions": "admissions_overview",
-                "admin": "institution_profile",
-                # academic/finance/department/hr require tenant-specific data
-                # Fall back to executive_kpi for aggregated IPEDS view
-                "academic": "executive_kpi",
-                "finance": "executive_kpi",
-                "department": "executive_kpi",
-                "hr": "executive_kpi",
-            }
-            fallback_name = DOMAIN_FALLBACK_INTENTS.get(domain, "executive_kpi")
-            rule = next(
-                (r for r in INTENT_RULES if r.name == fallback_name),
-                INTENT_RULES[0],  # Default to first rule (executive_kpi)
-            )
+        rule = _select_fallback_rule(rules, detected_domains, persona_type)
 
     return _build_intent(rule, raw_prompt, sanitized_prompt, aliased_prompt,
                          detected_domains, lower_prompt)

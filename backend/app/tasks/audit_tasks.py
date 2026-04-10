@@ -4,7 +4,7 @@ from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.schemas.pipeline import AuditEvent
 from app.services.audit_repository import persist_audit_event
-from app.tasks.celery_app import celery_app
+from app.tasks.celery_app import celery_app  # noqa: F401
 
 
 @celery_app.task(name="app.tasks.audit_tasks.write_audit_event")

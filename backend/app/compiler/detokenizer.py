@@ -1,39 +1,51 @@
 ﻿from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 
 from app.schemas.pipeline import CompiledQueryPlan
 
 
 class Detokenizer:
-    def _format_value(self, value: object) -> str:
+    def _is_sign_aware_claim_key(self, claim_key: str | None) -> bool:
+        if not claim_key:
+            return False
+        claim_key_lower = claim_key.lower()
+        return any(
+            keyword in claim_key_lower
+            for keyword in ("delta", "trend", "change", "growth", "variance")
+        )
+
+    def _format_value(self, value: object, claim_key: str | None = None) -> str:
         if value is None:
             return "N/A"
+        sign_aware = self._is_sign_aware_claim_key(claim_key)
         if isinstance(value, float):
-            return f"{value:.2f}".rstrip("0").rstrip(".")
+            formatted = abs(value) if sign_aware and value < 0 else value
+            return f"{formatted:.2f}".rstrip("0").rstrip(".")
         if isinstance(value, int):
-            return f"{value:,}"
+            formatted_int = abs(value) if sign_aware and value < 0 else value
+            return f"{formatted_int:,}"
         if isinstance(value, list):
             if not value:
                 return "no records found"
             # Format list of dicts as readable summary
             if isinstance(value[0], dict):
-                items = []
-                for item in value[:5]:  # Limit to 5 items
-                    name = (
-                        item.get("name")
-                        or item.get("query_text")
-                        or item.get("id", "item")
+                lines = []
+                for i, item in enumerate(value[:10], 1):
+                    query = item.get("query_text") or item.get("id", "unknown")
+                    blocked = item.get("was_blocked", False)
+                    timestamp = (
+                        item.get("created_at", "")[:16]
+                        if item.get("created_at")
+                        else ""
                     )
-                    status = item.get("status") or item.get("was_blocked")
-                    if status is not None:
-                        items.append(f"{name} ({status})")
-                    else:
-                        items.append(str(name))
-                result = ", ".join(items)
-                if len(value) > 5:
-                    result += f" and {len(value) - 5} more"
+                    status = "BLOCKED" if blocked else "allowed"
+                    lines.append(f"{i}. [{status}] {query} ({timestamp})")
+                result = "\n".join(lines)
+                if len(value) > 10:
+                    result += f"\n...and {len(value) - 10} more entries"
                 return result
             return ", ".join(str(v) for v in value[:10])
         if isinstance(value, dict):
@@ -49,9 +61,52 @@ class Detokenizer:
     ) -> str:
         rendered = template
         for slot_name, claim_key in query_plan.slot_map.items():
+            value = values.get(claim_key)
+            if self._is_sign_aware_claim_key(claim_key) and isinstance(
+                value, (int, float)
+            ) and value < 0:
+                value = abs(value)
             rendered = rendered.replace(
-                f"[{slot_name}]", self._format_value(values.get(claim_key))
+                f"[{slot_name}]", self._format_value(value, claim_key)
             )
+
+        rendered = re.sub(
+            r"\b(?:increased|grew|up) by -(\d+\.?\d*)",
+            r"decreased by \1",
+            rendered,
+            flags=re.IGNORECASE,
+        )
+        rendered = re.sub(
+            r"\b(?:decreased|declined|down) by -(\d+\.?\d*)",
+            r"decreased by \1",
+            rendered,
+            flags=re.IGNORECASE,
+        )
+        rendered = re.sub(
+            r"(?i)^(dear|hello|hi)\s+\w.*?\n",
+            "",
+            rendered,
+            flags=re.MULTILINE,
+        )
+        rendered = re.sub(
+            r"(?i)\n?(best regards|sincerely|yours truly|kind regards)[^\n]*$",
+            "",
+            rendered,
+            flags=re.MULTILINE,
+        )
+        rendered = re.sub(
+            r"(?i)\n?\[Your [A-Za-z ]+\][^\n]*$",
+            "",
+            rendered,
+            flags=re.MULTILINE,
+        )
+        rendered = re.sub(
+            r"(?i)\n?(if you need|please let me know|i can assist|feel free)[^\n]*$",
+            "",
+            rendered,
+            flags=re.MULTILINE,
+        )
+        rendered = " ".join(rendered.split())
 
         as_of = datetime.now().strftime("%d-%m-%Y")
         rendered = f"{rendered} As of {as_of}."

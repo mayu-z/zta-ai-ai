@@ -7,11 +7,29 @@ PERSONA_ZTA_SUGGESTIONS = {
         "Try to show raw student records to confirm aggregate-only enforcement.",
         "Ask for a finance-only dataset to confirm the domain gate blocks it.",
     ],
+    "student": [
+        "What is my overall attendance this semester?",
+        "How many subjects am I currently enrolled in?",
+        "What is my fee balance and due date?",
+        "Show me another student's attendance record.",
+    ],
+    "faculty": [
+        "How many courses am I handling right now?",
+        "What is the average attendance across my courses?",
+        "Show my leave balance and pending requests.",
+        "Show student fee balances for the whole campus.",
+    ],
+    "dept_head": [
+        "Show department performance summary.",
+        "How many students are in my department?",
+        "Show exam backlog and pass rate for my department.",
+        "Show payroll records for all departments.",
+    ],
     "admin_staff": [
-        "Show open admissions coverage across sampled campuses.",
-        "Give me admissions KPI summary for institutions in scope.",
-        "Try a campus-wide executive query to confirm admin scope limits.",
-        "Try a finance summary to confirm cross-domain access is blocked.",
+        "Show admissions operations summary for my office.",
+        "How many applicant records are currently in scope?",
+        "Show admissions intake trend summary.",
+        "Give me a finance collections summary.",
     ],
     "it_head": [
         "Use the admin panel to list data sources.",
@@ -22,10 +40,10 @@ PERSONA_ZTA_SUGGESTIONS = {
 }
 
 DEFAULT_ZTA_SUGGESTIONS = [
-    "Ask for data that should be allowed for your role.",
-    "Then ask for data outside your role to confirm the policy blocks it.",
-    "Verify aggregate roles do not receive row-level records.",
-    "Review the audit log to confirm both allowed and blocked actions are recorded.",
+    "Show my role-allowed summary for today.",
+    "Give me a quick performance overview for my current scope.",
+    "Show one query that should be blocked by policy.",
+    "Summarize my latest audit-visible activity.",
 ]
 
 

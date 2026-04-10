@@ -15,13 +15,24 @@ class ScopeContext(BaseModel):
     department: str | None = None
     external_id: str
     admin_function: str | None = None
+    role_key: str | None = None
     course_ids: list[str] = Field(default_factory=list)
+    row_scope_mode: str | None = None
+    row_scope_filters: dict[str, Any] = Field(default_factory=dict)
     allowed_domains: list[str] = Field(default_factory=list)
     denied_domains: list[str] = Field(default_factory=list)
     masked_fields: list[str] = Field(default_factory=list)
     aggregate_only: bool = False
     own_id: str | None = None
     chat_enabled: bool = True
+    sensitive_domains: list[str] = Field(
+        default_factory=lambda: ["finance", "hr"]
+    )
+    require_business_hours_for_sensitive: bool = True
+    business_hours_start: int = 9
+    business_hours_end: int = 19
+    require_trusted_device_for_sensitive: bool = True
+    require_mfa_for_sensitive: bool = True
     session_id: str
     session_ip: str | None = None
     device_trusted: bool = True
@@ -63,6 +74,8 @@ class InterpreterOutput(BaseModel):
 class CompiledQueryPlan(BaseModel):
     tenant_id: str
     source_type: str = "ipeds_claims"
+    data_source_id: str | None = None
+    source_binding_id: str | None = None
     domain: str
     entity_type: str
     select_claim_keys: list[str] = Field(default_factory=list)
@@ -103,4 +116,5 @@ class AuditEvent(BaseModel):
     block_reason: str | None
     response_summary: str
     latency_ms: int
+    latency_flag: str | None = None
     created_at: datetime

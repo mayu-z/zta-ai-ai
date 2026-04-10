@@ -118,7 +118,13 @@ Services:
 Notes:
 
 - A one-time `db-init` container automatically seeds baseline tenants/users/claims when the database is empty.
-- If data already exists, seeding is skipped.
+- If data already exists, seeding is skipped and runtime config backfill is applied.
+- To force a destructive reseed on startup:
+
+```bash
+ZTA_FORCE_RESEED=true ZTA_SEED_PROFILE=full docker compose up --build -d
+```
+
 - To fully reset data and reseed from scratch:
 
 ```bash

@@ -1,5 +1,6 @@
 ﻿import os
-from unittest.mock import MagicMock, patch
+import re
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,6 +13,7 @@ os.environ["USE_MOCK_GOOGLE_OAUTH"] = "true"
 os.environ["JWT_SECRET_KEY"] = "test-secret"
 os.environ["SLM_PROVIDER"] = "nvidia"
 os.environ["SLM_API_KEY"] = "test-key"
+os.environ["ZTA_SEED_PROFILE"] = "test"
 
 from app.core.config import get_settings  # noqa: E402
 
@@ -54,23 +56,35 @@ def mock_slm_client():
         user_msg = next((m for m in messages if m.get("role") == "user"), {})
         content = user_msg.get("content", "")
 
-        # Count slots from the prompt
-        slot_count = content.count("[SLOT_")
-        if slot_count == 0:
+        # Parse the explicit required slot count from the simulator prompt.
+        slot_count = 0
+        required_match = re.search(r"exactly\s+(\d+)\s+slot", content, re.IGNORECASE)
+        if required_match:
+            slot_count = int(required_match.group(1))
+        else:
+            available_match = re.search(
+                r"Data slots available \((\d+)\s+slots total",
+                content,
+                re.IGNORECASE,
+            )
+            if available_match:
+                slot_count = int(available_match.group(1))
+
+        if slot_count <= 0:
             slot_count = 2
 
         return _create_mock_slm_response(slot_count)
 
     mock_client.chat.completions.create = MagicMock(side_effect=create_completion)
 
-    # Directly inject mock client
-    original_client = slm_simulator._client
-    slm_simulator._client = mock_client
+    # Patch _get_client to always return mock - this prevents real API calls
+    original_get_client = slm_simulator._get_client
+    slm_simulator._get_client = lambda: mock_client
 
     yield mock_client
 
     # Reset after test
-    slm_simulator._client = original_client
+    slm_simulator._get_client = original_get_client
 
 
 @pytest.fixture

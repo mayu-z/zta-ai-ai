@@ -29,13 +29,24 @@ copy .env.example .env
 docker compose up -d postgres redis
 ```
 
-## 4. Initialize Schema + Seed IPEDS Data
+## 4. Initialize Schema + Seed Campus Mock Data
 
 ```bash
 python scripts/seed_data.py
 ```
 
-This seeds 5,826 real institutions from IPEDS CSV data (87,390 claims).
+This performs a full reset (`drop_all/create_all`) and seeds a large, deterministic campus-university mock dataset across all domains (`academic`, `finance`, `hr`, `admissions`, `exam`, `department`, `campus`, `admin`, `notices`).
+
+Seed profiles:
+
+- `full` (default): high-volume data for end-to-end validation.
+- `test`: lightweight dataset for fast test runs.
+
+Use a profile explicitly:
+
+```bash
+ZTA_SEED_PROFILE=full python scripts/seed_data.py
+```
 
 ## 5. Start API and Worker
 
@@ -78,13 +89,18 @@ The returned JWT must be passed in:
 
 Run `scripts/postgres_hardening.sql` in production to enforce DB-level append-only triggers for `audit_log`.
 
-## 9. IPEDS Users
+## 9. Default Seed Users
 
 | User | Persona | Description |
 |------|---------|-------------|
-| `executive@ipeds.local` | Executive | Aggregate institution data (enrollment, demographics) |
-| `admissions@ipeds.local` | Admin Staff | Admissions statistics |
-| `ithead@ipeds.local` | IT Head | Admin dashboard only (chat blocked) |
+| `executive@ipeds.local` | Executive | Aggregate campus and cross-domain KPI views |
+| `admissions@ipeds.local` | Admin Staff | Admissions office scoped summaries |
+| `finance@ipeds.local` | Admin Staff | Finance office scoped summaries |
+| `hr@ipeds.local` | Admin Staff | HR office scoped summaries|
+| `exam@ipeds.local` | Admin Staff | Examination office scoped summaries |
+| `ithead@ipeds.local` | IT Head | Admin-domain only (business chat blocked) |
+| `faculty@ipeds.local` | Faculty | Course-scoped faculty data |
+| `student@ipeds.local` | Student | Owner-scoped student data |
 
 All use `mock:<email>` token format.
 

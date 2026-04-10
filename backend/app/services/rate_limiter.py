@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.core.config import get_settings
 from app.core.exceptions import RateLimitError
@@ -12,7 +12,7 @@ class RateLimiterService:
         self.settings = get_settings()
 
     def check_and_increment(self, tenant_id: str, user_id: str) -> int:
-        day_key = datetime.utcnow().strftime("%Y%m%d")
+        day_key = datetime.now(tz=UTC).strftime("%Y%m%d")
         key = f"rate:{tenant_id}:{user_id}:{day_key}"
 
         count = redis_client.client.incr(key)

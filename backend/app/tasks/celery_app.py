@@ -50,9 +50,9 @@ else:
         accept_content=["json"],
         timezone="UTC",
         enable_utc=True,
-        # Fail fast when broker is unavailable so service-level fallback can persist audit synchronously.
+        # Retry broker connection during worker startup to handle orchestrated service boot timing.
         task_publish_retry=False,
-        broker_connection_retry_on_startup=False,
+        broker_connection_retry_on_startup=True,
         broker_transport_options={
             "max_retries": 0,
             "socket_connect_timeout": 1,
@@ -60,4 +60,4 @@ else:
         },
     )
 
-    celery_app.autodiscover_tasks(["app.tasks"])
+    celery_app.autodiscover_tasks(["app.tasks.audit_tasks"])

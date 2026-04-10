@@ -56,17 +56,11 @@ HOW_ARE_YOU_PATTERNS: tuple[str, ...] = (
 )
 
 GREETING_RESPONSES: list[str] = [
-    "Hello! I'm your data assistant. I can help you with information about attendance, grades, fees, courses, and more. What would you like to know?",
+    "Hello! I'm your data assistant. Ask any data question, and I'll answer based on your role's access permissions.",
 ]
 
 HELP_RESPONSES: list[str] = [
-    "I can help you access information based on your role. You can ask me about:\n"
-    "- Attendance records\n"
-    "- Grade summaries and GPA\n"
-    "- Fee balances and payments\n"
-    "- Course information\n"
-    "- Department metrics\n\n"
-    "Just ask your question naturally, and I'll do my best to help!",
+    "I can help you access information based on your role. Ask your question naturally, and I'll return what you're authorized to see.",
 ]
 
 THANKS_RESPONSES: list[str] = [

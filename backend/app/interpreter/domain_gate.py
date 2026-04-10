@@ -2,77 +2,7 @@
 
 import re
 
-from app.core.exceptions import AuthorizationError
-
-# Explicit domain keywords - these definitively identify a domain
-DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "academic": (
-        "attendance",
-        "grade",
-        "gpa",
-        "subject",
-        "course",
-        "timetable",
-        "semester",
-        "exam",
-        "result",
-        "class",
-    ),
-    "finance": (
-        "finance",
-        "fee",
-        "payment",
-        "budget",
-        "revenue",
-        "p&l",
-        "salary",
-        "payroll",
-        "invoice",
-        "financial",
-    ),
-    "hr": ("leave", "faculty record", "employee", "payslip", "attrition"),
-    "admissions": (
-        "admission",
-        "admissions",
-        "applicant",
-        "applicants",
-        "open admission",
-    ),
-    "department": ("department", "dept", "faculty performance"),
-    "campus": (
-        "cross campus",
-        "campus aggregate",
-        "enrollment",
-        "enrolment",
-        "enrolled",
-        "headcount",
-        "institution",
-        "hbcu",
-        "sector",
-        "public",
-        "private",
-        "demographics",
-        "size distribution",
-        "size",
-        "students",
-    ),
-    "admin": (
-        "audit",
-        "audit log",
-        "audit-log",
-        "schema",
-        "connector",
-        "connectors",
-        "kill switch",
-        "data source",
-        "data-source",
-        "datasource",
-        "data sources",
-        "data-sources",
-        "datasources",
-        "admin dashboard",
-    ),
-}
+from app.core.exceptions import AuthorizationError, ValidationError
 
 # Modifier keywords - only trigger campus domain when no explicit domain is found
 AGGREGATION_MODIFIERS: tuple[str, ...] = (
@@ -85,81 +15,94 @@ AGGREGATION_MODIFIERS: tuple[str, ...] = (
 )
 
 
+def _keyword_pattern(keyword: str) -> str:
+    normalized = keyword.strip().lower()
+    if not normalized:
+        return r"$^"
+
+    # Keep phrase matching strict; only expand light morphology for single words.
+    if " " in normalized:
+        return rf"\b{re.escape(normalized)}\b"
+
+    if re.fullmatch(r"[a-z]+", normalized):
+        if normalized.endswith("ies") or normalized.endswith("ses"):
+            return rf"\b{re.escape(normalized)}\b"
+        if normalized.endswith("y") and len(normalized) > 3:
+            stem = re.escape(normalized[:-1])
+            return rf"\b(?:{re.escape(normalized)}|{stem}ies)\b"
+        if normalized.endswith("s"):
+            return rf"\b{re.escape(normalized)}\b"
+        return rf"\b{re.escape(normalized)}(?:s|es)?\b"
+
+    return rf"\b{re.escape(normalized)}\b"
+
+
+def _keyword_matches(prompt: str, keyword: str) -> bool:
+    return bool(re.search(_keyword_pattern(keyword), prompt))
+
+
 def normalize_domain(domain: str) -> str:
-    """Extract base domain from suffixed domain like 'finance_aggregate' -> 'finance'."""
     if "_" in domain:
         return domain.split("_", 1)[0]
     return domain
 
 
-def detect_domains(prompt: str) -> list[str]:
+def detect_domains(
+    prompt: str,
+    domain_keywords: dict[str, tuple[str, ...]],
+    aggregation_modifiers: tuple[str, ...] | None = None,
+    persona_type: str | None = None,
+) -> list[str]:
     lower_prompt = prompt.lower()
     detected: list[str] = []
+    if not domain_keywords:
+        raise ValidationError(
+            message="No domain keyword configuration is available",
+            code="DOMAIN_KEYWORDS_NOT_CONFIGURED",
+        )
+    aggregation_modifiers = aggregation_modifiers or AGGREGATION_MODIFIERS
 
     # First pass: detect explicit domain keywords
-    for domain, keywords in DOMAIN_KEYWORDS.items():
+    for domain, keywords in domain_keywords.items():
         for keyword in keywords:
-            if re.search(rf"\b{re.escape(keyword)}\b", lower_prompt):
+            if _keyword_matches(lower_prompt, keyword):
                 detected.append(domain)
                 break
 
-    # Second pass: if no explicit domain found but aggregation modifiers present, default to campus
+    explicit_campus_markers = (
+        "campus",
+        "cross campus",
+        "nationwide",
+        "institution-wide",
+        "institution wide",
+        "all institutions",
+    )
+
+    # Second pass: if no explicit domain found but aggregation modifiers are present,
+    # only infer campus for executive/admin-style prompts or explicit campus wording.
     if not detected:
         has_aggregation_modifier = any(
-            re.search(rf"\b{re.escape(mod)}\b", lower_prompt)
-            for mod in AGGREGATION_MODIFIERS
+            _keyword_matches(lower_prompt, mod)
+            for mod in aggregation_modifiers
         )
         if has_aggregation_modifier:
-            detected = ["campus"]
-        else:
-            detected = ["academic"]
+            if any(_keyword_matches(lower_prompt, marker) for marker in explicit_campus_markers):
+                detected = ["campus"]
+            elif persona_type in {"executive", "it_head", "it_admin"}:
+                detected = ["campus"]
+
+    # If campus was inferred from broad KPI language but another explicit domain is
+    # present, prefer the explicit domain unless the prompt explicitly asks campus-wide.
+    if "campus" in detected and len(detected) > 1:
+        if not any(_keyword_matches(lower_prompt, marker) for marker in explicit_campus_markers):
+            detected = [domain for domain in detected if domain != "campus"]
 
     return sorted(set(detected))
 
 
 def is_domain_allowed(domain: str, allowed_domains: list[str]) -> bool:
-    """
-    Check if a detected domain is allowed by the user's allowed_domains list.
-    
-    For aggregate domains (e.g., finance_aggregate):
-    - Allows 'campus' domain (IPEDS aggregate data)
-    - Does NOT allow the base domain (e.g., finance) for transactional data
-    
-    This ensures executives can query aggregate institution data but not 
-    transactional financial records.
-    """
-    # Sensitive domains that should NOT be accessible via aggregate permissions
-    # E.g., finance_aggregate allows campus IPEDS data, NOT transactional finance
-    SENSITIVE_DOMAINS = {"finance", "hr"}
-    
-    for allowed in allowed_domains:
-        # Exact match always works
-        if allowed == domain:
-            return True
-        
-        # For aggregate permissions, check what they allow
-        if allowed.endswith("_aggregate"):
-            base_domain = normalize_domain(allowed)
-            
-            # Aggregate permissions always allow 'campus' domain (IPEDS data)
-            if domain == "campus":
-                return True
-            
-            # For sensitive domains, aggregate permission does NOT grant base domain access
-            # E.g., finance_aggregate does NOT allow 'finance' domain
-            if base_domain in SENSITIVE_DOMAINS:
-                continue
-            
-            # For non-sensitive domains (academic, etc.), aggregate allows base domain
-            # but policy layer enforces aggregate-only output
-            if domain == base_domain:
-                return True
-        else:
-            # Non-aggregate permission - use normalized matching
-            if normalize_domain(allowed) == domain:
-                return True
-    
-    return False
+    canonical = normalize_domain(domain)
+    return any(normalize_domain(allowed) == canonical for allowed in allowed_domains)
 
 
 def enforce_domain_gate(

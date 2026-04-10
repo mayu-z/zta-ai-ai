@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -19,6 +20,7 @@ class PipelineMonitorService:
     """Service for emitting pipeline events to Redis pub/sub channels."""
 
     CHANNEL_PREFIX = "pipeline:"
+    logger = logging.getLogger(__name__)
 
     def _publish(self, pipeline_id: str, event: dict[str, Any]) -> None:
         """
@@ -30,8 +32,12 @@ class PipelineMonitorService:
             channel = f"{self.CHANNEL_PREFIX}{pipeline_id}"
             redis_client.client.publish(channel, json.dumps(event))
         except Exception:
-            # Silently fail - monitoring should never break the pipeline
-            pass
+            # Monitoring failures should never break pipeline execution, but they
+            # must be visible for debugging.
+            self.logger.exception(
+                "Pipeline monitor publish failed",
+                extra={"pipeline_id": pipeline_id, "event_type": event.get("type")},
+            )
 
     def emit_pipeline_start(
         self,

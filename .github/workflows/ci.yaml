@@ -2,9 +2,9 @@ name: Backend CI - FastAPI + Celery
 
 on:
   pull_request:
-    branches: [main, staging]
+    branches: [ec2-main]
   push:
-    branches: [main, staging]
+    branches: [ec2-main]
 
 jobs:
   backend-ci:

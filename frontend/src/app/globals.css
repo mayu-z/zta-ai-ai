@@ -1,0 +1,211 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #D85A30;
+  --color-primary-hover: #993C1D;
+  --color-primary-tint: #FAECE7;
+  --color-bg: #FCFAF5;
+  --color-surface: #F6F2E9;
+  --color-border: #DBD7CB;
+  --color-text: #2C2C2A;
+  --color-text-muted: #888780;
+  --color-success: #2E7D32;
+  --color-warning: #AD7A00;
+  --color-danger: #C62828;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --ui-primary: var(--color-primary);
+  --ui-primary-hover: var(--color-primary-hover);
+  --ui-primary-tint: var(--color-primary-tint);
+  --ui-bg: var(--color-bg);
+  --ui-surface: var(--color-surface);
+  --ui-border: var(--color-border);
+  --ui-text: var(--color-text);
+  --ui-text-muted: var(--color-text-muted);
+  --ui-success: var(--color-success);
+  --ui-warning: var(--color-warning);
+  --ui-danger: var(--color-danger);
+}
+
+@theme inline {
+  --color-primary: var(--ui-primary);
+  --color-primary-hover: var(--ui-primary-hover);
+  --color-primary-tint: var(--ui-primary-tint);
+  --color-bg: var(--ui-bg);
+  --color-surface: var(--ui-surface);
+  --color-border: var(--ui-border);
+  --color-text: var(--ui-text);
+  --color-text-muted: var(--ui-text-muted);
+
+  --color-background: var(--ui-surface);
+  --color-surface-elevated: var(--ui-bg);
+  --color-accent: var(--ui-primary);
+  --color-accent-hover: var(--ui-primary-hover);
+  --color-success: var(--ui-success);
+  --color-warning: var(--ui-warning);
+  --color-danger: var(--ui-danger);
+  --color-text-primary: var(--ui-text);
+  --color-text-faint: var(--ui-text-muted);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--color-text);
+  font-family: var(--font-inter), "Segoe UI", sans-serif;
+  background: var(--color-surface);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-text);
+  font-weight: 500 !important;
+}
+
+input,
+textarea,
+select {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--color-border);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.glass-card {
+  background: var(--color-bg);
+  border: 0.5px solid var(--color-border);
+  box-shadow: 0 1px 6px rgba(44, 44, 42, 0.06);
+}
+
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.mono-number {
+  font-family: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+  color: var(--color-text);
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 300ms ease-out both;
+}
+
+svg.animate-spin {
+  color: var(--color-primary);
+}
+
+table thead th {
+  background: var(--color-surface);
+  font-weight: 500;
+}
+
+table tbody td,
+table tbody th {
+  border-bottom: 0.5px solid var(--color-border);
+}
+
+table tbody tr:hover td,
+table tbody tr:hover th {
+  background: var(--color-primary-tint);
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.62;
+    transform: scale(1.22);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+.animate-accordion-down {
+  animation: accordion-down 0.28s ease-out;
+}
+
+.animate-accordion-up {
+  animation: accordion-up 0.24s ease-out;
+}
+
+@media (max-width: 1023px) {
+  body {
+    padding-bottom: 78px;
+  }
+}

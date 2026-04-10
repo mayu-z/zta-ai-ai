@@ -144,6 +144,152 @@ class User(Base):
 Index("ix_users_tenant_email", User.tenant_id, User.email, unique=False)
 
 
+class RolePolicy(Base):
+    __tablename__ = "role_policies"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    role_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    allowed_domains: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    masked_fields: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    aggregate_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    chat_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    row_scope_mode: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    sensitive_domains: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=lambda: ["finance", "hr"]
+    )
+    require_business_hours_for_sensitive: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    business_hours_start: Mapped[int] = mapped_column(Integer, nullable=False, default=9)
+    business_hours_end: Mapped[int] = mapped_column(Integer, nullable=False, default=19)
+    require_trusted_device_for_sensitive: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    require_mfa_for_sensitive: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+
+
+Index(
+    "ix_role_policies_tenant_role",
+    RolePolicy.tenant_id,
+    RolePolicy.role_key,
+    unique=True,
+)
+
+
+class DomainKeyword(Base):
+    __tablename__ = "domain_keywords"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    domain: Mapped[str] = mapped_column(String(50), nullable=False)
+    keywords: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+
+
+Index(
+    "ix_domain_keywords_tenant_domain",
+    DomainKeyword.tenant_id,
+    DomainKeyword.domain,
+    unique=True,
+)
+
+
+class IntentDefinition(Base):
+    __tablename__ = "intent_definitions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    intent_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    domain: Mapped[str] = mapped_column(String(50), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    slot_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    keywords: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    persona_types: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    requires_aggregation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+
+
+Index(
+    "ix_intent_definitions_tenant_intent",
+    IntentDefinition.tenant_id,
+    IntentDefinition.intent_name,
+    unique=True,
+)
+Index(
+    "ix_intent_definitions_tenant_domain",
+    IntentDefinition.tenant_id,
+    IntentDefinition.domain,
+    unique=False,
+)
+
+
+class DomainSourceBinding(Base):
+    __tablename__ = "domain_source_bindings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    domain: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_type: Mapped[DataSourceType] = mapped_column(
+        Enum(DataSourceType), nullable=False
+    )
+    data_source_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("data_sources.id"), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+
+
+Index(
+    "ix_domain_source_bindings_tenant_domain",
+    DomainSourceBinding.tenant_id,
+    DomainSourceBinding.domain,
+    unique=True,
+)
+
+
 class DataSource(Base):
     __tablename__ = "data_sources"
 
@@ -266,9 +412,47 @@ class AuditLog(Base):
     block_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
     response_summary: Mapped[str] = mapped_column(Text, nullable=False)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    latency_flag: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utc_now
     )
+
+
+class IntentDetectionKeyword(Base):
+    __tablename__ = "intent_detection_keywords"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    intent_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    keyword_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    keyword: Mapped[str] = mapped_column(String(255), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+
+
+Index(
+    "ix_intent_detection_keywords_tenant_intent_type",
+    IntentDetectionKeyword.tenant_id,
+    IntentDetectionKeyword.intent_name,
+    IntentDetectionKeyword.keyword_type,
+    unique=False,
+)
+Index(
+    "ix_intent_detection_keywords_tenant_keyword",
+    IntentDetectionKeyword.tenant_id,
+    IntentDetectionKeyword.intent_name,
+    IntentDetectionKeyword.keyword,
+    IntentDetectionKeyword.keyword_type,
+    unique=True,
+)
 
 
 class IntentCacheEntry(Base):

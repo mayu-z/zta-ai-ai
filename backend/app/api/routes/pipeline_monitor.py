@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
@@ -14,6 +16,7 @@ from app.core.redis_client import redis_client
 from app.db.session import SessionLocal
 
 router = APIRouter(prefix="/admin/pipeline", tags=["pipeline-monitor"])
+logger = logging.getLogger(__name__)
 
 
 @router.websocket("/monitor")
@@ -29,6 +32,7 @@ async def monitor_pipeline(
     await websocket.accept()
     db: Session = SessionLocal()
     pubsub = None
+    listener_task: asyncio.Task[None] | None = None
 
     try:
         # Validate token and IT HEAD permission
@@ -57,19 +61,43 @@ async def monitor_pipeline(
 
         # Listen for Redis pub/sub messages and forward to WebSocket
         async def redis_listener():
-            """Listen to Redis pub/sub and forward events to WebSocket (non-blocking)."""
+            """Listen to Redis pub/sub and forward events to WebSocket (async-safe)."""
             while True:
-                # Use get_message with timeout to avoid blocking the event loop
-                message = pubsub.get_message(timeout=0.1)
+                if asyncio.current_task() and asyncio.current_task().cancelled():
+                    return
+
+                # redis-py pubsub is synchronous; use a thread hop to avoid blocking
+                # the FastAPI event loop while waiting for messages.
+                try:
+                    message = await asyncio.to_thread(
+                        pubsub.get_message,
+                        True,
+                        0.2,
+                    )
+                except asyncio.CancelledError:
+                    return
+                except Exception:
+                    logger.exception("Pipeline monitor Redis listener failed")
+                    await asyncio.sleep(0.25)
+                    continue
+
                 if message and message["type"] == "pmessage":
                     try:
                         event_data = json.loads(message["data"])
                         await websocket.send_json(event_data)
+                    except json.JSONDecodeError:
+                        logger.warning("Skipping malformed pipeline monitor payload")
+                    except asyncio.CancelledError:
+                        return
                     except Exception:
-                        # Skip malformed messages
-                        pass
+                        logger.exception("Pipeline monitor websocket forward failed")
+                        break
+
                 # Yield control to event loop
-                await asyncio.sleep(0.05)
+                try:
+                    await asyncio.sleep(0.05)
+                except asyncio.CancelledError:
+                    return
 
         # Start Redis listener task
         listener_task = asyncio.create_task(redis_listener())
@@ -80,10 +108,19 @@ async def monitor_pipeline(
                 await websocket.receive_text()
                 await asyncio.sleep(0.1)
         except WebSocketDisconnect:
-            listener_task.cancel()
+            if listener_task:
+                listener_task.cancel()
+        except Exception:
+            logger.exception("Pipeline monitor websocket loop failed")
 
     finally:
+        if listener_task:
+            listener_task.cancel()
+            with contextlib.suppress(Exception):
+                await listener_task
         db.close()
         if pubsub:
-            pubsub.punsubscribe()
-            pubsub.close()
+            with contextlib.suppress(Exception):
+                pubsub.punsubscribe()
+            with contextlib.suppress(Exception):
+                pubsub.close()

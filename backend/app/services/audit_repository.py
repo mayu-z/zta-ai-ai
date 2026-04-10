@@ -20,6 +20,7 @@ def persist_audit_event(db: Session, event: AuditEvent) -> None:
         block_reason=event.block_reason,
         response_summary=event.response_summary[:200],
         latency_ms=event.latency_ms,
+        latency_flag=event.latency_flag,
         created_at=event.created_at or datetime.now(tz=UTC),
     )
     db.add(row)

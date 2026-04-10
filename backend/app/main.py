@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
@@ -9,15 +10,25 @@ from fastapi.responses import JSONResponse
 from app.api.routes import admin, auth, chat, pipeline_monitor
 from app.core.config import get_settings
 from app.core.exceptions import ZTAError
+from app.core.redis_client import redis_client
 from app.db.init_db import create_all_tables
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name, version="1.0.0")
 
+cors_allowed_origins = [
+    "http://172.31.42.23:8080",
+    "http://localhost:8080",
+    "http://localhost:3000",
+    "http://3.25.168.174:8080",
+    "http://3.25.168.174",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,7 +37,23 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
+    if settings.environment == "production" and settings.jwt_secret_key == "change-me":
+        raise RuntimeError(
+            "JWT_SECRET_KEY must be set to a secure random value in production. "
+            'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+        )
     create_all_tables()
+
+    try:
+        redis_client.client.ping()
+        if redis_client.using_in_memory_fallback:
+            logger.warning(
+                "Redis fallback mode is active. Intent cache and pipeline monitor pub/sub will be degraded."
+            )
+        else:
+            logger.info("Redis connection established")
+    except Exception:
+        logger.exception("Redis health check failed during startup")
 
 
 @app.exception_handler(ZTAError)

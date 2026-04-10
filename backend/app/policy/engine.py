@@ -17,7 +17,7 @@ class PolicyEngine:
         self, scope: ScopeContext, intent: InterpretedIntent, plan: CompiledQueryPlan
     ) -> PolicyDecision:
         # IT Head can only access admin domain through chat
-        if scope.persona_type == "it_head":
+        if scope.role_key in {"it_head", "it_admin"} or scope.persona_type == "it_head":
             if intent.domain != "admin":
                 raise AuthorizationError(
                     message="IT Head is restricted to admin dashboard and cannot access business data chat",
@@ -43,20 +43,26 @@ class PolicyEngine:
                 code="EXEC_AGGREGATE_ONLY",
             )
 
-        local_hour = datetime.now().hour
-        if intent.domain in {"finance", "hr"} and (local_hour < 9 or local_hour > 19):
-            raise AuthorizationError(
-                message="Sensitive domain queries are only allowed during business hours",
-                code="ABAC_TIME_BLOCK",
-            )
+        sensitive_domains = set(scope.sensitive_domains or [])
+        if intent.domain in sensitive_domains:
+            if scope.require_business_hours_for_sensitive:
+                local_hour = datetime.now().hour
+                if (
+                    local_hour < scope.business_hours_start
+                    or local_hour > scope.business_hours_end
+                ):
+                    raise AuthorizationError(
+                        message="Sensitive domain queries are only allowed during business hours",
+                        code="ABAC_TIME_BLOCK",
+                    )
 
-        if intent.domain in {"finance", "hr"} and (
-            not scope.device_trusted or not scope.mfa_verified
-        ):
-            raise AuthorizationError(
-                message="Sensitive domain requires trusted device and MFA",
-                code="ABAC_TRUST_BLOCK",
-            )
+            if (
+                scope.require_trusted_device_for_sensitive and not scope.device_trusted
+            ) or (scope.require_mfa_for_sensitive and not scope.mfa_verified):
+                raise AuthorizationError(
+                    message="Sensitive domain requires trusted device and MFA",
+                    code="ABAC_TRUST_BLOCK",
+                )
 
         return PolicyDecision(allowed=True)
 
