@@ -1,686 +1,1343 @@
 # ZTA-AI Final Product Production Plan
+## The Authoritative Single Source of Truth
+
+---
 
 ## Document Purpose
-This document is the complete, product-grade execution blueprint for ZTA-AI as a final market-ready platform.
 
-It is intentionally not an MVP plan.
-It does not reduce scope.
-It assumes university pilots first, while building a foundation valid for all regulated enterprise domains.
+This document is the **single source of truth** for ZTA-AI's final production-grade product.
 
-This plan is written to align Product, Engineering, Security, Compliance, Legal, and Operations to one source of truth.
+It defines what ZTA-AI must do, how it works, what it controls, and how success is measured.
 
-## Vision Statement
-ZTA-AI is a compliance-first, zero-trust, agentic enterprise data assistant that operates on customer-owned infrastructure, answers data questions within user scope, and executes policy-governed automations without learning from customer data.
+- **No feature cuts. No compromises. No scope reduction.**
+- **Domain-agnostic.** Applicable to any regulated enterprise (banking, healthcare, insurance, manufacturing, professional services).
+- **Fully detailed.** Every feature explained with concrete examples. Every use case illustrated. Every architecture component clarified.
+- **Implementation-focused.** Phase gates, acceptance criteria, risk mitigation, quality gates—ready for execution.
+
+This plan unifies Product, Engineering, Security, Compliance, Legal, and Operations to one reference document.
+
+---
+
+## Executive Vision
+
+**ZTA-AI** is a compliance-first, zero-trust, agentic enterprise data assistant that:
+
+- **Runs on customer infrastructure** (on-prem, private cloud, customer-managed accounts)
+- **Enables natural language data access** with policy-safe automatic scoping
+- **Automates business workflows** with deterministic, reversible, fully auditable actions
+- **Never learns from or exfiltrates customer data** (zero-learning guarantee)
+- **Enforces policy at every layer:** role-based (RBAC), attribute-based (ABAC), row-level (RLS), field-level (FLS), time-based, risk-based
+- **Is production-ready for compliance** with HIPAA, GDPR, DPDP from Day 1
+- **Provides complete forensic auditability** for every query, action, and policy decision
 
 ## Non-Negotiable Product Guarantees
-1. Customer data remains under customer control at all times.
-2. No model training, fine-tuning, or external learning from customer records.
-3. Every query and action is policy-scoped and fully auditable.
-4. The system is deployable in on-prem and private cloud modes.
-5. HIPAA, GDPR, and DPDP operational controls are native product capabilities.
-6. Agentic automation is deterministic, constrained, and reversible where required.
-7. Reliability and latency are product gates, not optional optimizations.
 
-## Current Reality Baseline
-The current MVP is a pilot-grade prototype and not representative of final product completeness.
+1. **Data Custody:** Customer data remains physically and logically under customer control at all times
+2. **Zero Learning:** Model inference never uses customer data for training, fine-tuning, or learning
+3. **Policy Scoping:** Every result proves its authorization through detailed scope and access rationale
+4. **On-Premise First:** Core functionality operates unchanged on customer infrastructure without external dependencies
+5. **Compliance Native:** HIPAA, GDPR, DPDP controls are Day 1 capabilities, not add-ons
+6. **Deterministic Automation:** Workflows are bounded by policy, fully auditable, reversible/rollback-capable
+7. **Production SLAs:** Latency, reliability, and observability meet enterprise standards from launch
 
-Observed baseline concerns that this plan resolves:
-1. Significant use of placeholder or fake paths in parts of the stack.
-2. Hardcoded intent and role assumptions in core interpretation behavior.
-3. Incomplete implementation of first-party action templates.
-4. Partial connector productionization.
-5. Compliance controls not fully operationalized across all required legal workflows.
-6. Current request latency around 5000 ms baseline for interactive paths.
+---
 
-This production plan is designed to close every one of those gaps.
+## Current MVP Reality
 
-## Product Definition: Final State
-### What final ZTA-AI must be
-1. A complete platform, not a demo workflow.
-2. A governed intelligence and automation layer over enterprise databases.
-3. A compliance operations product, not only an AI query interface.
-4. A secure-by-default system where guardrails are stronger than model freedom.
+The MVP is an excellent proof-of-concept but is **not production-ready:**
 
-### What final ZTA-AI must not be
-1. A generic chatbot attached to SQL.
-2. A system that can exfiltrate sensitive data through prompts, logs, or telemetry.
-3. A product whose policies can be bypassed by phrasing tricks.
-4. A model-training pipeline fed by customer interactions.
+1. **Incomplete connectors** — SQL works; ERP, Sheets, Warehouse, Analytics connectors are stubs (raise `SOURCE_CONNECTOR_NOT_ENABLED`)
+2. **Hardcoded domain logic** — Intent extraction, persona mapping, field classification are baked for one specific domain; generalization layer missing
+3. **Placeholder templates** — 12 baseline action templates defined but not operationalized; no workflow orchestrator, no trigger engine
+4. **Mock authentication** — OAuth with trust-on-first-use; no SAML, OIDC, MFA, service mTLS
+5. **Performance gap** — ~5000ms baseline latency (1.8s model, 1s schema queries, 260ms interpreter); target <1000ms P95
+6. **Incomplete compliance** — Audit logging works; DSAR, erasure, consent, retention workflows missing
+7. **Missing admin surfaces** — No tenant or system admin consoles; governance requires engineering
 
-## Product Scope and Personas
-### End User Personas
-1. Student
-2. Faculty
-3. Department Head
-4. Registrar
-5. Finance Officer
-6. HR Officer
-7. Research Administrator
-8. Executive and Leadership roles
+**This plan closes every gap.**
 
-### Administrative Personas
-1. Tenant Admin (customer IT head and governance owners)
-2. Compliance Officer (privacy, legal, audit)
-3. Security Admin
-4. System Admin (platform operator team)
-5. Support and SRE
+---
 
-### Core Use Cases
-1. Conversational, policy-safe data querying.
-2. Explainable result generation with source and scope rationale.
-3. Automated action execution with approvals.
-4. Trigger-based proactive workflows.
-5. Compliance operations: DSAR, erasure, consent governance, breach workflows.
-6. Fleet and incident governance for production operation.
+## Domain-Agnostic Product Definition
 
-## Reference Product Architecture
+ZTA-AI serves **any regulated organization with policy-governed data and workflows.**
+
+### What ZTA-AI Is
+- A policy-governed semantic query and execution engine
+- A conversational interface to enterprise data with automatic scope enforcement
+- A workflow automation platform with deterministic, reversible, auditable actions
+- A compliance operations product (DSAR, erasure, breach, audit evidence)
+
+### What ZTA-AI Is NOT
+- A generic AI chatbot with SQL backend
+- A model training pipeline fed by customer records
+- A system whose policies can be bypassed by prompt phrasing
+- Cloud-hosted SaaS for customer data
+- A replacement for specialized software (ERP, HCM, CRM)
+
+---
+
+## Personas: Domain-Agnostic but Concrete
+
+ZTA-AI serves diverse personas across organizations. These are **generic by design** but illustrated across **banking, healthcare, manufacturing, insurance, and professional services.**
+
+### End User Persona: Data Analyst / Operational Analyst
+
+**Profile:**
+- Needs business questions answered using structured data
+- Understands data concepts but may lack SQL knowledge
+- Works across multiple systems (ERP, data warehouse, business apps)
+- Creates reports, dashboards, exports
+
+**Banking Example:**
+A commercial loan analyst asks: *"Show me all commercial loan applications from the automotive sector in Q4 2024 where the applicant has been a customer for less than 2 years, and give me their credit score distribution and default rate benchmarks."*
+
+**ZTA-AI Processing:**
+1. **Intent:** `FILTERED_AGGREGATION(Loan Applications, filter={sector:"automotive", date_range:"Q4_2024", tenure:"<2yrs"}, metrics={credit_score_distribution, default_rates})`
+2. **Scope validation:** Checks role allows commercial loan analyst access (not consumer loans)
+3. **Policy enforcement:** Commercial analyst cannot see pricing terms (confidential)
+4. **Query compilation:** Optimal SQL across loan_applications, applicant_profiles, credit_bureau with necessary joins
+5. **Result:** 47 defaulted applications, $340M exposure, credit score distribution (Excellent 15%, Good 28%, Fair 45%, Poor 12%), default rate 3.2%
+6. **Explainability:** "See this because: (1) Commercial Loan Analyst role, (2) Automotive portfolio authority, (3) No PII in result (only aggregated, de-identified metrics)"
+
+**Healthcare Example:**
+A hospital operations analyst asks: *"Which clinical departments have the highest variance in average patient wait times between morning and evening appointments in February 2026?"*
+
+**ZTA-AI Processing:**
+1. **Intent:** `AGGREGATION(Appointments, group_by:department, calculation:variance(wait_time), partition:time_of_day, filter:{month:Feb2026})`
+2. **Policy:** Operations analyst role, no access to primary diagnosis or patient identifiers
+3. **Query:** Group by department, filter date range, calculate variance across AM/PM cohorts
+4. **Result:** ED has 45-minute AM variance vs. 18-minute PM variance (staffing pattern); Oncology consistent
+5. **Explanation:** This is aggregated wait time data, no patient details visible per your operational role
+
+**Manufacturing Example:**
+A supply chain analyst asks: *"Which suppliers have we been paying late (beyond 45 days) in the last quarter, and what impact on component stock levels?"*
+
+**ZTA-AI Processing:**
+1. **Intent:** `CORRELATE(Payments {late_days:>45}, Inventory_Impact, date_range:Q4_2025, calculate:stock_variance)`
+2. **Policy:** Supply chain analyst, can see supplier payment terms and inventory; cannot see supplier bank details or negotiated pricing
+3. **Query:** Late AP transactions, supplier master, inventory variance, with temporal correlation
+4. **Result:** 8 suppliers with late payments >45 days; 4 caused inventory shortages (stock-out incidents); avg $340K impact per late-paying supplier
+5. **Explanation:** Sourced from AP and Inventory systems, you have analyst access to these domains
+
+---
+
+### End User Persona: Knowledge Worker / Operational User
+
+**Profile:**
+- Performs everyday business tasks (approvals, status checks, next actions)
+- Needs quick answers to routine questions
+- Requests automations to reduce manual work
+- Limited technical knowledge
+
+**Professional Services Example:**
+A project manager asks: *"What's the status of the Client X engagement? Who's assigned, utilization vs. planned, what's due this sprint?"*
+
+**ZTA-AI Provides:**
+```
+CLIENT X PROJECT STATUS
+
+Status: 81% Complete
+Team (3 assigned):
+  • Sarah: Senior Consultant, 92% utilization (vs. 90% plan) ✓
+  • Marcus: Consultant, 78% utilization (vs. 85% plan) ⚠️ Under-utilized
+  • Intern: Junior, 45% utilization (vs. 40% plan) ✓
+
+Upcoming Sprint (Next 2 weeks):
+  • Deliverable A: Due 3/12 (Assigned: Sarah) - On track
+  • Deliverable B: Due 3/15 (Assigned: Marcus) - At risk (85% complete, time 87% consumed)
+  • Deliverable C: Due 3/18 (Assigned: Intern) - On track
+
+Proactive Flags:
+  • Marcus is below utilization; recommend task rebalancing
+  • Deliverable B may slip; suggest daily standups with Marcus
+  • Billable hours trending $45K (95% of estimated budget)
+
+Available Actions:
+  [✓] Adjust Marcus's task load  [✓] Send team status email  [✓] Create risk log entry  [✓] Request budget increase
+```
+
+**Insurance Example:**
+A claims processor asks: *"Show me all open claims assigned to me where the claimant hasn't responded to our last request for 20+ days."*
+
+**ZTA-AI Provides:**
+```
+STALE CLAIMS REQUIRING ACTION
+
+Total claims with no response >20 days: 12
+
+🔴 URGENT (2 claims - escalate immediately):
+  • Claim #CLM-20872: Medical emergency vehicle claim, $245K exposure, claimant silent 28 days
+    Last request: Medical opinion from orthopedist, vital for settlement
+    Recommended action: Call claimant + send certified notice (reserve expiry approaching)
+    
+  • Claim #CLM-20891: Large loss specialty property claim, $3.2M exposure, broker silent 32 days
+    Last request: Replacement cost estimate from insured
+    Recommended action: Call broker + contact policyholder directly
+
+🟡 MODERATE (6 claims):
+  • Claim #CLM-20877, #CLM-20888, etc. [Listed with follow-up actions]
+
+🟢 LOW PRIORITY (4 claims):
+  • [Listed with routine follow-up timing]
+
+One-Click Actions:
+  [Send escalation notices] [Schedule phone calls] [File penalties] [Create follow-up tasks] [Mark for manager review]
+```
+
+**Retail Example:**
+A store manager asks: *"Which SKUs from dairy section didn't hit forecast this week? Markdown suggestions?"*
+
+**ZTA-AI Provides:**
+```
+DAIRY UNDERPERFORMANCE ANALYSIS
+
+Products missing forecast (Week ending 3/8/2026):
+
+SKU: Yogurt Variety Pack (Product #YOGI-24OZ)
+  • Forecasted: 240 units | Actual: 198 units | Variance: -17.5% (-42 units)
+  • Overstock: 180 units in inventory
+  • Markdown suggestion: 12% reduction (based on price elasticity model)
+  • Action: [Approve Markdown] - Projected recovery rate 82% based on historical patterns
+
+SKU: Greek Yogurt Single (Product #GYOG-5.3OZ)
+  • Forecasted: 180 units | Actual: 205 units | Variance: +13.9% (performing well ✓)
+
+SKU: Kefir (Product #KEF-16OZ)
+  • Forecasted: 90 units | Actual: 54 units | Variance: -40% (significant miss)
+  • Suggestion: Different issue—out of stock 2-3 days during week
+  • Action: [Increase order quantity for next week]
+
+Summary:
+• 3 products underperforming (all dairy category)
+• 1 out-of-stock issue (replenishment problem, not demand issue)
+• Estimated impact: $1,850 lost revenue if not corrected
+• Recommended actions: 1 markdown + 1 reorder adjustment
+```
+
+---
+
+### Administrative Persona: Tenant Administrator  
+
+**Profile:**
+- Responsible for data security, policy enforcement, user provisioning
+- Manages roles, access policies, field masking, sensitive data controls
+- Controls data source connectors and credentials
+- Owns compliance operations (DSAR, audit reports, policy changes)
+
+**Healthcare Scenario:** Hospital CIO sets up ZTA-AI for 2,000-person organization
+
+**User Provisioning:** Defines roles (Doctor, Nurse, Admin, Billing, Research) with permission matrices
+- Doctors can see full patient records for assigned patients (all fields)
+- Nurses see clinical fields only (no billing/financial responsibility)
+- Billing see financial fields only (no clinical details)
+- Research accesses de-identified cohort data only
+
+**Policy Configuration:**
+```
+Role: Clinical_Provider (Doctor)
+Scope:
+  • Patients: Assigned patients (from schedule/clinic assignment)
+  • Fields: All clinical data (diagnosis, medications, lab results, imaging)
+  • Cannot see: Financial responsibility, insurance details, payment history
+  • Row-level: WHERE department=user.assigned_dept AND provider_id=user.id
+  • Time-based: Normal business hours + on-call escalations (logged)
+
+Audit:
+  • All PHI access logged (regulatory requirement)
+  • Break-glass access (emergency override) requires justification and post-access review
+  • Retention: 6 years (HIPAA requirement)
+```
+
+**Connector Setup:** Connects EHR (Epic), Accounting (SAP), Lab (Cerner), Pharmacy (McKesson)
+- Tests connectivity, verifies schema mapping, confirms field metadata
+- Configures auto-refresh (hourly) and schema change detection
+- Sets up credentials in tenant vault (never exposed, auto-rotated)
+
+**Compliance Settings:**
+- Enables HIPAA mode (requires MFA, logs all PHI access, enables BAA terms)
+- Configures retention: PHI audit logs retained 6 years (regulatory)
+- Maps fields to PHI classification: Patient name = BareMinimum → Masked; SSN = Protected → Cannot export
+
+---
+
+### Administrative Persona: Compliance and Security Officer
+
+**Profile:**
+- Ensures ZTA-AI operates within legal and security boundaries
+- Manages DSAR execution, erasure workflows, breach response, audit evidence
+- Proves compliance to regulators and auditors
+- Responds to privacy incidents
+
+**Healthcare Scenario: HIPAA Compliance Officer**
+
+**Daily Operations:**
+- Runs automated report: "All BAA-required PHI access (last 7 days)" with requestor, scope, justification
+- Reviews unusual access patterns (e.g., doctor accessing 500+ patient records in one query) and approves or blocks
+- Receives alerts from policy enforcement system (blocked access attempts, policy violations)
+
+**Incident Response Example:**
+```
+BREACH INVESTIGATION SCENARIO
+Initial alert: Unauthorized attempt to export all patient SSNs on 3/15/2026
+
+Investigation initiated: Compliance Officer requests forensic export
+  "All database access logs (3/10-3/15) with user, query, results count, policy decisions"
+
+ZTA-AI generates tamper-proof forensic report:
+  Timestamp: 3/15 14:22
+  User: John Doe (IT Staff)
+  Query: SELECT patient_id, ssn FROM patient_master
+  Policy decision: BLOCKED (John Doe is ITStaff, not authorized for patient data export)
+  Rationale: SSN field marked PHI - FieldLevel restriction applied
+  Audit log: Query blocked, policy rule [RLS-PatientData], no data returned
+
+Executive Summary:
+  ✓ No patient records were actually exported (policy enforcement worked)
+  ✓ Access denial was automatic and logged
+  ✓ No data exfiltration occurred
+  
+Compliance Officer's conclusion:
+  "This attempted breach was prevented by policy controls. No breach notification required.
+   Recommend: Review John Doe's access permissions (should not have patient scope);
+   disable his access, log the incident, and notify IT leadership."
+```
+
+**DSAR Execution Example:**
+```
+DSAR Request Intake:
+Request ID: DSAR_2026_0347
+Subject: Mr. John Smith (Patient since 2020)
+Request: "Send me all records you hold about me"
+Legal deadline: 30 calendar days (GDPR requirement)
+
+ZTA-AI Automated Processing:
+  Step 1: Identify - Query all systems where John Smith records exist
+    • EHR system: 145 clinical visit records
+    • Billing system: 8 invoices, 4 payment records
+    • Lab system: 32 lab result records
+    • Pharmacy: 18 prescription/medication records
+    • Analytics: Inferred preferences (website behavior tracking, app usage)
+    Total: 207 records across 5 systems
+
+  Step 2: Aggregate - Collect into staging area, organize by system
+
+  Step 3: Redact - Remove records mentioning OTHER patients that reference John Smith
+
+  Step 4: Organize - Structure human-readable format
+    {
+      "medical_records": [145 visits with dates, diagnoses, treatments],
+      "billing": [8 invoices with amounts, dates],
+      "lab_results": [32 results with test names, values, dates],
+      "prescriptions": [18 prescriptions with drug names, dosages],
+      "analytics": [behavioral data: 1,247 website visits, 340 app sessions]
+    }
+
+  Step 5: Deliver - Export encrypted file, deliver via secure portal
+
+  Step 6: Document - Complete audit trail
+    Request received: 3/1/2026
+    Processing completed: 3/8/2026 (7 days, well within 30-day deadline)
+    Delivered: 3/8/2026 via secure portal
+    Proof: Signed receipt, access logs
+
+Verification: Mr. Smith downloaded export 3/8 at 10:15am
+Compliance record: DSAR_2026_0347 - COMPLETE, documented
+```
+
+---
+
+## Use Cases by Domain: Detailed Walkthroughs
+
+### Banking: Loan Portfolio Risk Management
+
+**Setup:** Commercial bank, $50B portfolio, 200 credit analysts, systems: LOS, Credit scoring DB, LADS
+**Configured for:** SQL connectors, schemas mapped (loans, obligor_profiles, guarantors, collateral, payments)
+
+**Use Case 1: Stress Testing for CCAR Submission**
+
+Risk officer asks:
+```
+"Show me our commercial real estate (CRE) portfolio distribution by property type, 
+occupancy, LTV, and interest rate sensitivity. 
+Impact of +200bp rate shock and -10% property value shock?"
+```
+
+**ZTA-AI Execution:**
+1. Intent: PORTFOLIO_STRESS_TEST with multi-dimensional analysis
+2. Scope check: Risk Manager role, CRE portfolio authorized
+3. Compiles SQL: GROUP BY property_type, SUM(exposure), AVG(ltv), duration analysis
+4. Returns:
+   ```
+   CRE Portfolio: $8.2B (16.4% of total)
+   
+   By Property Type:
+   • Office: $2.1B (26%), avg LTV 62%, avg occupancy 78%
+   • Retail: $1.8B (22%), avg LTV 58%, avg occupancy 82%
+   • Industrial: $2.4B (29%), avg LTV 55%, avg occupancy 94%
+   • Specialty: $1.9B (23%), avg LTV 65%, avg occupancy 71%
+   
+   Rate Sensitivity: $3.2B floating rate (39%)
+   +200bp shock: Est. +$12.8M annual income (but rate-reset risk for obligors)
+   
+   Stress Scenario (+200bp, -10% property values):
+   • LTVs increase ~5%
+   • Loans >85% LTV: +47 loans ($580M)
+   • Estimated additional loss: ~$28M
+   
+   Policy validation: ✓ You can see this (Risk Manager, portfolio-level aggregation)
+   ```
+
+**Use Case 2: Early Warning System—Delinquency Detection**
+
+Analyst asks:
+```
+"Which obligors have deteriorated credit indicators in last 30 days? 
+Show credit score drops, missed payments, covenant violations, industry downgrades."
+```
+
+**Result:**
+```
+EARLY WARNING ALERTS (30-day window)
+
+CRITICAL (7 obligors—immediate action required):
+  • BigBox Retail Chain: Moody's downgrade Baa1→Ba1, $45M exposure
+  • Hospitality Corp: 2 missed payments, 60 DPD status, $12M
+
+HIGH (19 obligors—credit committee review):
+  • Manufacturing recession cohort: PMI <48, 12 firms affected
+  • Regional bank peer exposure: 5 firms, $234M aggregate
+
+MEDIUM (34 obligors—quarterly monitoring):
+  • Credit score drops 20-50 points
+  • Covenant headroom narrowed
+
+Recommended actions:
+  • 7 critical: Obligor contact, assess restructuring options
+  • 19 high: Weekly credit committee review
+  • 34 medium: Quarterly review cycle
+
+This data is sourced from LOS (payment), Credit Bureau (scores), Covenant tracking system.
+You have analyst access to all these systems.
+```
+
+**Use Case 3: Loan Modification Workflow with Approvals**
+
+Deal team asks:
+```
+"Modify Acme Corp $200M facility: extend maturity +3yr, reduce rate 50bp, loosen covenants.
+Show approval requirements and risk impacts."
+```
+
+**ZTA-AI Triggers Workflow:**
+```
+MODIFICATION REQUEST SUMMARY
+
+Facility: Acme Corp $200M Revolver + Term
+Changes: +3yr maturity, -50bp rate, 2.5x→3.0x leverage covenant
+Risk impact: KD Rank 12→18 (higher risk category)
+NPV impact: +$8.4M (favorable)
+
+REQUIRED APPROVALS:
+  ☐ Credit Risk Approver (VP level) - PENDING
+  ☐ Treasury (rate/liquidity) - PENDING
+  ☐ Compliance - NOT REQUIRED (rate cut improves credit)
+
+Once approved, system automatically:
+  1. Generates updated legal documents
+  2. Runs covenant audit
+  3. Updates loan accounting system
+  4. Logs to audit trail (compliance record)
+  5. Notifies obligor and legal counsel
+```
+
+Upon VP approval, workflow executes automatically with full audit trail documented.
+
+---
+
+### Healthcare: Patient Care and Compliance
+
+**Setup:** 5 hospitals, 200+ clinics, EHR (Epic), Lab, Pharmacy, Billing, HR
+
+**Use Case 1: Patient Safety—Sepsis Risk Alert**
+
+Nurse at bedside asks: *"Sepsis warning signs for my assigned patients? Fever + elevated WBC + low BP or high lactate?"*
+
+**Real-time Response:**
+```
+SEPSIS ALERT SUMMARY
+
+🔴 CRITICAL RISK (1 patient):
+  Robert M. (Room 412A)
+  • Vitals: T=103.2°F, HR=128, BP=88/52, RR=24
+  • Labs: WBC=18.2↑, Lactate=4.1↑, Creatinine=1.9↑
+  • qSOFA: 3/3 (HIGH RISK)
+  • Recommendation: PAGE PHYSICIAN NOW; initiate sepsis protocol
+  • Action: Alert escalated to attending + charge nurse
+
+🟡 ELEVATED RISK (3 patients):
+  • Maria G. (Room 410): T=101.8, WBC=15.1, BP=92/60
+  • James K. (Room 415): T=100.4, WBC=13.2, Lactate=2.8
+
+🟢 LOW RISK (8 patients): Normal
+
+Confidence: HIGH for current vitals; labs max 1hr old
+```
+
+**Use Case 2: Readmission Risk Assessment**
+
+Care coordinator asks: *"Discharged patients (last 30 days) at highest 6-month readmission risk? Show risk factors, post-discharge meds, appointments."*
+
+**Response:**
+```
+HIGH READMISSION RISK COHORT (Predicted 6-mo readmission >40%):
+
+Rank 1: Ruth W. (Discharged 3/5/2026)
+  • Condition: COPD exacerbation
+  • Risk: 68% predicted readmission
+  • Contributing: Age 78, multiple comorbidities, adherence concerns
+  • Post-discharge: Prednisone (compliance risk), Albuterol inhaler
+  • Follow-up: PCP scheduled 3/19 ✓
+  • Interventions: (1) Daily home health week 1 (2) Auto drug refill (3) Telephonic case management 3/10
+  • Status: [Ready for approval]
+
+Rank 2: George M. (Discharged 3/8/2026)
+  • Condition: CHF acute decompensation
+  • Risk: 52% predicted readmission
+  • Problem: EF 32%, no PCP scheduled (risk!)
+  • Action: [Expedite PCP to <7 days] [Home health for daily weights/vitals]
+
+[12 more high-risk cases]
+
+Opportunity: Implementing interventions could prevent ~6 readmissions (save ~$180K)
+```
+
+**Use Case 3: Compliance—Unauthorized Access Investigation**
+
+Privacy Officer asks: *"Surgical tech accessed patient records not on her schedule. What did she see? Was it justified? Policy violations?"*
+
+**Forensic Report:**
+```
+UNAUTHORIZED ACCESS INVESTIGATION
+
+User: Sarah C. (Surgical Tech, OR-West)
+Date/Time: March 12, 2026, 14:47
+Patient: Michael T. (MRN XXXX5678)
+
+Access Details:
+  • Full clinical record: ALL fields accessed
+  • Imaging reports: 4 CTs reviewed
+  • Pathology reports: 3 reviewed
+
+Claim: "Colleague asked for care plan info"
+Actual requirement: Sarah NOT scheduled for this patient
+
+Policy Evaluation:
+  ❌ Policy Violation: Full clinical record access without assignment
+  ⚠️ Mitigating: Surgical staff have some patient-access permissions
+  ❌ But: Scope excessive (imaging/pathology not needed for "care plan")
+
+Risk: LOW-MEDIUM
+  • No data export detected
+  • Isolated incident (not recurring pattern)
+  • Patient not VIP/celebrity/litigation-involved
+
+Recommended actions:
+  1. IMMEDIATE: Interview Sarah, document justification
+  2. REVIEW: Check if she accessed other non-assigned patients that day
+  3. EDUCATION: Retraining on minimum-necessary principle
+  4. MONITOR: Extra oversight for Sarah's access next 30 days
+
+Audit trail: All details logged, BAA-compliant, ready for breach assessment
+```
+
+---
+
+### Financial Services: Anti-Money Laundering (AML) and Sanctions
+
+**Setup:** Large institution, millions of customers, compliance requirements: FinCEN, OFAC, BSA/AML
+
+**Use Case 1: Suspicious Activity Pattern Detection**
+
+AML Analyst asks:
+```
+"Show customers receiving wire transfers >$100K from high-risk jurisdictions (FATF grey),
+3+ transfers in same period"
+```
+
+**Response:**
+```
+SUSPICIOUS ACTIVITY ALERTS
+
+🔴 TIER 1 - IMMEDIATE ESCALATION (5 customers):
+
+ABC Import Corp (ID: 12847)
+  • 4 wire transfers from Pakistan (grey-list): $480K total
+  • From 4 different entities (shell company risk)
+  • Rapid consolidation pattern
+  • Historical: No prior Pakistani counterparty relationship
+  • Risk assessment: NEW_COUNTERPARTY + GREY_JURISDICTION + CONSOLIDATION = SUSPICIOUS
+  • Action: FREEZE pending SAR filing; contact customer for justification
+  • SAR draft: Prepared, awaiting Compliance Officer approval
+
+XYZ Trading (ID: 24891)
+  • 3 transfers from Egypt: $185K total
+  • Relationship: Legitimate, historical pattern consistent
+  • Risk: Elevated but known business model
+  • Action: MONITOR (not escalate); flag quarterly review
+
+[Additional cases...]
+
+Summary:
+  • Flagged: 5 Tier 1 + 12 Tier 2 + 34 Tier 3
+  • Est. SAR filings: 3-5 cases
+  • Next: Escalate Tier 1 to Compliance Officer
+```
+
+**Use Case 2: OFAC Sanctions Screening**
+
+Loan Officer initiates: *"$50M export finance deal with Turkish company. Check OFAC lists."*
+
+**Automated Screening:**
+```
+OFAC COMPLIANCE CHECK
+
+Customer: TurkeyTrade Corp (Istanbul Trading and Import Export Ltd.)
+Beneficial Owners: Mehmet Aydin (75%), Fatima Aydin (25%)
+
+Match Results:
+  ✓ TurkeyTrade Corp: NO MATCH to SDN/CSL lists
+  ✓ Mehmet Aydin: NO MATCH
+  ✓ Fatima Aydin: NO MATCH
+  ⚠️ Note: "Istanbul Trading Ltd" (partial name) has 1 potential CSL match
+          (Iranian company), but different legal structure—NOT the same entity
+
+Transaction History:
+  • 12 prior transfers (all <$5M each)
+  • No prior OFAC flags
+  • No transactions to OFAC-sanctioned jurisdictions
+
+✓ COMPLIANCE CLEARANCE APPROVED
+
+Evidence: This screening logged for regulatory proof of due diligence
+```
+
+---
+
+## Features: Complete Reference
+
+### Tier 1: End User Interactive Features
+
+#### Feature 1.1: Conversational Natural Language Query Interface
+
+User asks: *"Show me sales by region for Q4 last year"*
+
+**Processing Chain:**
+1. Intent: QUERY_AGGREGATION(sales, region, Q4_2025)
+2. Scope: Verify role has regional sales access
+3. Compile: SQL to aggregate revenue by region
+4. Return: Table with visualization
+5. Explain: "See this because: (1) Sales Analyst role (2) No customer masking applied (3) Regional aggregation only"
+
+**Banking example:** *"Which loans originated in Boston office in 2024 have defaulted?"*
+→ Returns: 47 defaulted loans, $340M exposure, 3.2% default rate, with scope proof
+
+**Healthcare example:** *"Open pain complaints from my patients yesterday?"*
+→ Returns: 3 patients sorted by severity, one flagged for immediate follow-up
+
+**Manufacturing example:** *"Are we ahead of production targets this month?"*
+→ Returns: 3,420 units produced vs. 3,200 target (106%), broken down by product line
+
+---
+
+#### Feature 1.2: Multi-Turn Context-Aware Clarification
+
+User queries loop without re-stating context:
+
+```
+User: "Show me customer churn this year"
+→ Result: 1,240 customers churned (4.2 churn rate), by product line and region
+
+User: "Focus on high-value ones only" (system remembers prior query)
+→ System filters: churn_customers AND ARR>$50K
+→ Result: 180 high-value customers churned, $18M lost
+
+User: "Which ones still under contract?" (system contextualizes)
+→ Result: 47 customers, potential recovery opportunity
+
+User: "What was main reason they left?"
+→ Result: 34 cited competitor, 11 cited cost, 2 cited gaps
+
+User: "Can we reach out to the cost-sensitive ones?" (trigger action)
+→ System creates outreach task, notifies sales leader
+```
+
+---
+
+#### Feature 1.3: Explainability and Scope Rationale
+
+Every result includes:
+- What data was queried (sources)
+- Why user can see it (authorization proof)
+- Scope boundaries applied (what was filtered/masked)
+
+**Example header:**
+```
+✓ Data Sources: Sales pipeline system, historical close rates
+✓ Your Access: Sales Director role authorized for forecast inputs
+✓ Scope Boundaries:
+  • Customer names NOT included (masking for confidential discussions)
+  • Field-level: Forecast values only; pricing and terms hidden
+  • Row-level: Your assigned accounts only (12 accounts, $940M pipeline)
+✓ Confidence: 18-month historical basis; 2 months forward = moderate confidence
+```
+
+---
+
+#### Feature 1.4: Result Export with Policy-Aware Redaction
+
+User exports report to email. System automatically redacts per policy:
+
+**Example:** Healthcare compliance officer exports stroke admissions
+```
+Original fields: Patient name, exact age, admission reason, insurance
+Exported fields: Age bin (65-75 age, not exact), admission reason, unit, length of stay
+Removed: Patient name, insurance (per RLS policy)
+Encryption: End-to-end before email transmission
+Audit: Export logged with timestamp and recipient
+```
+
+---
+
+#### Feature 1.5: Saved Query Templates with Governance
+
+Sales operations creates template: "Monthly Sales Dashboard"
+```
+Parameters: Month (default: current), Region (optional)
+Content: Revenue by region, YoY, variance to budget; new customer count; churn; win rates
+Access: Anyone in Sales role
+Usage: 1,240 runs in February by 280 staff
+Status: APPROVED (Finance Director, 2/28)
+Audit: All runs logged; Finance can see population analytics
+Version control: Retire old versions, push updates to all users
+```
+
+---
+
+### Tier 2: Tenant Administration Features
+
+#### Feature 2.1: User and Group Lifecycle Management
+
+Console for provisioning, deprovisioning, group management:
+```
+User Management:
+  • Add user: John Smith, role=Sales_Rep, start=3/10
+  • Disable user: Mark Johnson (save audit, archive after 90 days)
+  • Bulk import: 50 contractors via CSV, auto-provision
+
+Group Management:
+  • Create "Board_Observers" (8 members)
+  • Modify "Finance_Ops" access to new system
+  • Deprovisioning report: Users inactive >60 days (suggest archiving)
+
+Audit: Show all access changes last 30 days
+```
+
+---
+
+#### Feature 2.2: Role and Persona Builder (No-Code)
+
+Example: Healthcare CIO creating "Clinical_Department_Manager"
+
+```
+Role Definition:
+Attributes: Manager of department X, reports to VP Clinical Ops
+
+Access:
+  • Patient records: Assigned department patients only
+  • Clinical workflows: Orders, results, discharge summaries
+  • Financial: Aggregate cost reports only (NOT individual billing)
+  • QA metrics: Department metrics vs. peer benchmarks
+
+Scope Rules (auto-enforced):
+  • RLS: Department = user's department
+  • FLS: No SSN, insurance subscriber ID
+  • Temporal: Patients seen in last 12 months
+  • Escalation: Can request temporary access outside (approval, logged)
+
+Audit Implications:
+  • All outside-department access triggers alert
+  • Escalated access logged + reviewable
+  • Satisfies HIPAA "need to know"
+
+Users with role: 12 department managers
+Last modified: Sarah Torres, 2/15/2026
+```
+
+---
+
+#### Feature 2.3: Data Source Connector Management
+
+Console for adding/managing data sources:
+```
+Connected Sources (8 total):
+
+1. Salesforce (SFDC)
+   • Status: ✓ Connected (100+ fields)
+   • Last sync: 5 min ago
+   • Latency: 340ms avg
+   • Health: GREEN ✓
+   • Actions: [Test] [Resync schema] [Disable] [View errors]
+
+2. SAP (Accounting ERP)
+   • Status: ✓ Connected
+   • Latency: 1,200ms (complex schema)
+   • Health: YELLOW ⚠ (slow query detected—recommend index)
+   • Actions: [Optimize] [Test]
+
+3. ADP (HR System)
+   • Status: ✗ DISCONNECTED
+   • Error: "API key expired"
+   • Quick fix: [Regenerate key]
+
+Add New Source:
+  [Select type] [Enter credentials] [Test] [Import schema] [Assign to tenant]
+```
+
+---
+
+#### Feature 2.4: Field-Level Masking and Row-Level Policies (No-Code)
+
+**Field Masking Rule Example:**
+```
+Rule: Patient_SSN_Mask
+
+Pattern: XXX-XX-#### (hides first 5 digits)
+
+Who sees full SSN?
+  ✓ Billing (payment verification needed)
+  ✓ Compliance (BAA audits)
+  ✗ Clinical staff
+  ✗ Researchers (de-identified cohorts)
+
+Unmasking:
+  • Emergency access: logged + audited
+  • Justified by job function + approval
+
+Audit trail: [All unmasking events logged]
+Status: ACTIVE (2,150 clinical staff)
+```
+
+**Row-Level Policy Example:**
+```
+Policy: LoanOfficer_Portfolio_Scope
+
+Scope:
+  User sees loans WHERE:
+    • loan.originating_office = user.office, OR
+    • loan.assigned_officer = user.name, OR
+    • (user.role = "Senior" AND loan.status = "problem")
+
+Rationale:
+  • Line officers: Own portfolio
+  • Senior officers: Problem loans only (supervision)
+  • Cross-office: Prevented (conflict of interest)
+
+Effect:
+  User: Mike Chen (Boston, Commercial Loan Officer)
+  Visible: 45 assigned loans + 2 problem loans from other offices = 47 total
+  Policy applied silently; audit logged "RLS restriction applied"
+```
+
+---
+
+#### Feature 2.5: Workflow and Trigger Management (No-Code)
+
+Finance Director creates: "Month-End Close Automation"
+
+```
+Trigger: First business day of month, 11:00pm (batch window)
+
+Steps:
+  1. Verification
+     • Check: GL batches posted (automated)
+     • If FAIL: Alert accountant, stop
+     • If PASS: Continue → 2 seconds
+
+  2. Revenue Accrual
+     • Calculate unbilled revenue (running...)
+     • Duration: ~30 seconds
+
+  3. Expense Accrual
+     • Calculate accrued expenses (queued)
+
+  4. Approval: HUMAN-IN-LOOP
+     • Accountant reviews, approves
+     • SLA: 4 hours
+
+  5. Consolidation
+     • Eliminate inter-entity transactions (queued)
+
+  6. Report Generation
+     • P&L, balance sheet, cash flow (queued)
+
+  7. Distribution
+     • Email to Finance + board portal (queued)
+
+Total runtime: 45 minútes typically
+SLA: Month-end close by 10:45am
+Rollback: Available—if errors detected, GL can be restored
+Audit: Every run logged with step-by-step times, approvals, outcomes
+```
+
+---
+
+### Tier 3: Compliance and Audit Features
+
+#### Feature 3.1: DSAR (Data Subject Access Request) Execution
+
+```
+DSAR Request:
+ID: DSAR_2026_0347
+Requestor: John Smith (customer since 2020)
+Request: "Give me all records you hold about me"
+Deadline: 30 days (GDPR)
+
+ZTA-AI Processing:
+
+Step 1: Identify
+  • Customer master: ID #12847
+  • Billing: 8 invoices, 4 payments
+  • Support: 3 tickets
+  • Analytics: Browsing/email data
+  Total: 200+ records across 6 systems
+
+Step 2: Aggregate → Collect to staging
+
+Step 3: Redact → Remove others' records mentioning John
+
+Step 4: Organize → Human-readable format (PDF, CSV)
+
+Step 5: Deliver
+  • Export encrypted
+  • Secure portal (login required)
+  • Access logged
+
+Step 6: Document
+  • Audit trail proves response within deadline
+  • Legal evidence file (compliance proofing)
+
+Status: COMPLETE (delivered 3/8, 7 days early)
+Verification: User accessed 3/8 10:15am
+```
+
+---
+
+#### Feature 3.2: Right-to-Erasure Execution
+
+```
+Erasure Request:
+Customer: Jane Doe
+Request: "Complete erasure of my personal data"
+Basis: GDPR Article 17 (no longer needed)
+Deadline: 45 days
+
+Processing:
+
+  Step 1: Identify deletable records
+    • Account profile, billing, support, marketing: DELETE
+    • Invoices (business records): RETAIN (accounting audit trail)
+
+  Step 2: Deletion plan
+    • Primary system: Delete customer + FK references
+    • Billing: Pseudonymize (keep for audit, de-link from person)
+    • Support: Delete tickets
+    • Analytics: Delete browsing data
+    • Backups: Flag for future purging (older backups auto-expire)
+
+  Step 3: Execution
+    • Execute deletes, verify completion
+
+  Step 4: Validation
+    • Query: SELECT COUNT(*) FROM customers WHERE id='Jane Doe' → Result: 0 ✓
+
+  Step 5: Proof of Erasure
+    • Deletion certificate
+    • Signed by system, tamper-proof
+
+Response to customer:
+  "Your data has been fully deleted from live systems (3/15/2026).
+   Offline backups may retain data for [X] days (auto-expire).
+   [Deletion certificate attached]"
+
+Status: COMPLETE
+Proof: Signed deletion certificate + validation query logs
+```
+
+---
+
+#### Feature 3.3: Audit Ledger and Forensic Export
+
+```
+Audit Query: "All access to patient record #54321 (2/15-3/15/2026)"
+
+Results (23 events):
+
+1. 2026-02-15 08:15 | Dr. Sarah Chen | Query patient record
+   Justification: Patient assigned to Dr. Chen (clinical care)
+   Policy: ✓ ALLOWED (patient assignment)
+   Outcome: Record viewed 3 min, no export
+   Audit: Event logged
+
+2. 2026-02-15 14:30 | Patient Relations | SEND_PATIENT_LETTER
+   Justification: Post-op care instructions
+   Policy: ✓ ALLOWED (operations staff)
+   Outcome: Letter printed (no electronic export)
+
+3. 2026-02-20 10:45 | Compliance Officer | Query patient demographics
+   Justification: HIPAA audit (validating controls)
+   Policy: ✓ ALLOWED (compliance officer)
+   Outcome: Record viewed, exported to secure audit file (encrypted)
+
+4. 2026-02-22 16:20 | Billing Staff | ATTEMPTED ACCESS
+   Justification: Claims verification
+   Policy: ✗ BLOCKED (billing cannot see clinical)
+   Outcome: Access denied, policy enforced
+
+[Continue for all 23 events]
+
+Summary:
+  • Total: 23 access events
+  • Authorized: 22 (95.7%)
+  • Denied: 1 (4.3%)
+  • Exports: 1 (compliance audit)
+  • Unusual activity: 0
+
+Forensic Export:
+  • Format: CSV (tamper-proof audit report)
+  • Signed: System signature (proves authenticity)
+  • Compliance: Meets HIPAA audit standards (regulator-ready)
+```
+
+---
+
+## Architecture Deep Dives with Examples
+
 ### Layer A: Experience and Access
-1. Web chat and dashboard interface.
-2. Streaming response channel.
-3. User authentication and secure session handling.
-4. Tenant-aware request context initialization.
+
+**Components:**
+- Chat interface (natural language entry)
+- Session management (MFA, timeouts, tokens)
+- Request context initialization (user scope setup)
+
+**Example:**
+```
+User Sarah (Sales Manager) logs in:
+  1. SAML authentication confirmed
+  2. MFA: SMS code verified
+  3. Session issued: 8-hour validity, refresh capability
+  4. Context initialized:
+     • User ID: sarah_chen_123
+     • Tenant: FirstBank
+     • Role: Sales_Manager
+     • Scope filter: "Commercial loans, Boston office"
+  5. All downstream queries filtered by scope automatically
+```
+
+---
 
 ### Layer B: Interpretation and Planning
-1. Intent extraction and disambiguation.
-2. Domain and entity mapping.
-3. Policy and scope pre-check.
-4. Query or action planning generation.
-5. Safety classification and risk scoring.
+
+**Components:**
+- Intent extractor (recognizes operation type)
+- Entity mapper (business terms → database schemas)
+- Scope pre-checker (validates authorization)
+- Query planner (generates optimized execution plan)
+
+**Healthcare Example:**
+```
+Nurse asks: "Patients from my department without follow-up scheduled <60 days?"
+
+Processing:
+  1. Intent: FILTERED_AGGREGATION (patients with temporal filter + negation)
+  2. Mapping: "my dept" → user.assigned_dept; "follow-up <60d" → LEFT JOIN appointments
+  3. Scope: ✓ Nurse assigned to Cardiology; authorized
+  4. Plan: Query patient + discharge + appointments with temporal predicate
+  
+Execution:
+  SELECT p.*, dm.discharge_date 
+  FROM patients p
+  JOIN discharge_master dm ON ...
+  LEFT JOIN appointments a ON ... AND a.appointment_date BETWEEN dm.discharge_date AND dm.discharge_date + 60
+  WHERE p.department_id = '4317' AND a.appointment_id IS NULL
+
+Result: 12 patients without scheduled follow-ups
+Explanation: "These are aggregated, no PII; you have Cardiology access"
+```
+
+---
 
 ### Layer C: Policy and Guardrail Enforcement
-1. RBAC role policies.
-2. ABAC attribute policies.
-3. Row-level and field-level policy overlays.
-4. Sensitive data handling rules.
-5. Action permissions and approval dependencies.
+
+Multiple policy layers checked on every query:
+
+```
+Manufacturer analyst query: "Show supplier scorecards (cost, quality)"
+
+Policy checks:
+  1. RBAC: Supply_Chain_Analyst role? ✓ YES
+  2. ABAC: Has "Metals_Fasteners" category assigned? ✓ YES
+     → Filter: supplier_category = "Metals_Fasteners" APPLIED
+  3. FLS: Can see cost_score, quality_score? ✓ YES
+     → Cannot see: contract_value, margin MASKED (2 fields hidden)
+  4. Temporal: Access time restrictions? ✗ NONE
+  5. Risk-based: MFA verified? Device safe? ✓ YES
+
+Final result: 34 Metals suppliers, cost & quality scores only
+Audit: "FILTER APPLIED (category), MASKING APPLIED (2 fields)"
+```
+
+---
 
 ### Layer D: Execution Plane
-1. Query compiler and execution router.
-2. Connector runtime and source adapters.
-3. Action registry and workflow orchestrator.
-4. Trigger scheduler and event engine.
-5. Notification dispatch subsystem.
 
-### Layer E: Compliance and Audit Plane
-1. Immutable event ledger.
-2. Data processing records.
-3. DSAR and erasure workflows.
-4. Consent and legal basis management.
-5. Breach management and evidence exports.
+**Components:**
+- Query compiler (translate to DB-native)
+- Connector runtime (source adapters)
+- Action orchestrator (workflows)
+- Trigger engine (scheduled/event-based)
+
+**Example Workflow:**
+```
+Month-end close automation:
+  Status: RUNNING (started 11:00pm 3/1)
+
+  Step 1: Validation [73% complete]
+    Check: GL batches all posted
+    → 847 batches identified ✓
+    Duration: 2 seconds
+
+  Step 2: Revenue Accrual [Running...]
+    Calculate unbilled revenue
+    Estimated duration: 30 seconds
+
+  [Step 3-7 queued...]
+
+Once Step 2 completes → Step 3 starts
+After Step 4 (approval gate) → Manual approval required
+All steps audited in real-time
+Rollback available if errors found
+```
+
+---
+
+### Layer E: Compliance and Audit
+
+- Immutable ledger (append-only audit log)
+- DSAR/erasure workflows
+- Consent and legal basis tracking
+- Breach workflows
+
+**Already detailed above in Feature 3.1-3.3**
+
+---
 
 ### Layer F: Reliability and Operations
-1. Observability and tracing.
-2. SLO and SLA management.
-3. Incident response operations.
-4. Release governance and configuration drift controls.
-5. Cost and capacity governance.
 
-## Foundational Security Model
-### Identity and Session Security
-1. Enterprise SAML or OIDC integration.
-2. Mandatory MFA with policy options per role risk class.
-3. Session hardening with short-lived tokens and refresh controls.
-4. Device risk posture checks where available.
-5. Geo and network policy constraints where required.
+**Observability:**
+- Distributed tracing (interpretation → policy → compile → execution)
+- Structured logging (sensitive data minimized)
+- Metrics (latency, throughput, policy denials)
+- Alerting (severity + escalation)
 
-### Service Security
-1. Mutual TLS between internal services.
-2. Secret management through customer-approved vault system.
-3. Automatic credential rotation and revocation paths.
-4. Strict network segmentation by service function.
-5. Deny-by-default outbound network policy.
+**Example SLO Dashboard:**
+```
+Interactive Query Path:
+  Target: <1000ms P95
+  Current: 940ms P95 (target met ✓)
+  Tail risk (<1): 2.1% (within 2.5% budget)
 
-### Data Security
-1. Encryption in transit with modern TLS.
-2. Encryption at rest on all persistent stores.
-3. Key management custody model defined per deployment.
-4. Backup encryption and restore authorization controls.
-5. Runtime memory hygiene and sensitive payload minimization.
+Workflow Execution:
+  Target: 99.9% availability
+  Current: 99.92% (target met ✓)
 
-### Application Security
-1. Input sanitization and injection prevention.
-2. Output filtering and sensitive content guardrails.
-3. Structured error handling without sensitive leakage.
-4. Security headers and API hardening.
-5. Continuous vulnerability scanning and patch governance.
+Compliance Features:
+  DSAR processing time: avg 18 hours (target <24h)
+  Audit log freshness: <30 seconds (current: 8 seconds)
+```
 
-## Zero-Learning and Data Non-Exfiltration Policy
-### Required behavior
-1. Customer row-level content is not used for training datasets.
-2. Customer prompts and outputs are not used for model retraining.
-3. No external model endpoint receives sensitive data unless customer-hosted and contractually scoped.
-4. Telemetry stores metadata only, not full sensitive payload by default.
-5. Logs are redacted and policy-classified before persistence.
+---
 
-### Technical enforcement
-1. Runtime policy gate for all outbound requests.
-2. Sensitive content classifiers on prompt and output paths.
-3. Redaction engine before observability ingestion.
-4. Config locks preventing accidental opt-in to learning paths.
-5. Audit attestations proving that non-learning controls are active.
+## Compliance Operations by Framework
 
-### Evidence model
-1. Signed control state snapshots.
-2. Egress log proofs by service and destination class.
-3. Policy enforcement logs for blocked exfiltration attempts.
-4. Independent audit verification checklist.
+### HIPAA Implementation Example
 
-## Compliance Completion Model
-This product must be compliance-operational, not compliance-aspirational.
+**Access Control:**
+Doctors can only access patients in their care scope. Break-glass access logged and reviewed.
 
-### HIPAA readiness
-1. PHI classification and tagging in policy model.
-2. Least-privilege PHI access with strict break-glass controls.
-3. Complete PHI access audit trails and review workflows.
-4. BAA operational support package.
-5. Incident response process with PHI impact documentation.
-6. Workforce access governance and periodic review controls.
+**Audit Logging:**
+Every PHI access logged (6-year retention). Immutable.
 
-### GDPR readiness
-1. Legal basis tagging for processing operations.
-2. Consent capture and revocation lifecycle.
-3. Data Subject Access Request export workflows.
-4. Right to erasure execution and evidence receipts.
-5. Retention limits and scheduled deletion enforcement.
-6. Records of processing activities.
-7. Breach communication workflow support.
+**Breach Investigation:**
+```
+Alert: Employee accessed 340 patient records inappropriately
 
-### DPDP readiness
-1. Notice and purpose governance.
-2. Consent lifecycle controls.
-3. Data principal rights handling workflows.
-4. Data correction and erasure processes.
-5. Retention and deletion governance.
-6. Localization and transfer control configuration where required.
+Investigation:
+  • Which records: Identified, count = 340
+  • What data: Clinical + imaging (PHI)
+  • Risk: HIGH (comprehensive access, no documented need)
+  
+ZTA-AI forensic report:
+  • Access denied by policy (logged)
+  • No data export detected
+  • Evidence: Audit logs proving control worked
+  
+HIPAA response:
+  • 340 patients potentially affected
+  • Notify within 60 days
+  • Report to HHS OCR
+  • ZTA-AI provides complete forensic package for regulators
+```
 
-### Critical conflict handling
-Immutable audit requirements can conflict with erasure obligations.
-Final product must support one approved legal-technical pattern:
-1. Cryptographic pseudonymization and tombstoning while preserving ledger integrity.
-2. Envelope key destruction for specific personal linkage fields.
-3. Segmented retention classes with legal basis-aware deletion.
+### GDPR Implementation Example
 
-This decision must be finalized with legal and security governance and codified in product settings.
+**DSAR:** [Detailed in Feature 3.1 above]
+**Erasure:** [Detailed in Feature 3.2 above]
 
-## Complete Feature Matrix
-### End User Features
-1. Conversational query interface with structured result rendering.
-2. Multi-turn context-aware clarification.
-3. Explainability panel showing intent, scope, and source basis.
-4. Saved query templates and secure sharing.
-5. Export controls with policy-aware redaction.
-6. Notification center for triggered events and workflow outcomes.
+**Consent Management:**
+```
+Customer opts out of marketing communications:
+  1. Withdrawal recorded in ZTA-AI (timestamp)
+  2. Marketing data tagged for deletion
+  3. Automated deletion job (next 24 hours)
+  4. Marketing systems receive instruction
+  5. Verification query: Confirm customer removed
+  6. Audit trail: Withdrawal timestamp → deletion timestamp → verification proof
+  
+Proof to regulator: "Customer opted out [date]; system automatically deleted data by [date]"
+```
 
-### Tenant Admin Features
-1. User and group lifecycle management.
-2. Persona and role model builder.
-3. Policy simulator and what-if authorization testing.
-4. Domain and data source mapping management.
-5. Field-level masking and row-level policy tools.
-6. Connector onboarding and credential vault linkage.
-7. Schema discovery and change impact analysis.
-8. Action registry management.
-9. Trigger and workflow management.
-10. Compliance operations center.
-11. Audit exploration and report exports.
-12. Security and policy posture dashboard.
+### DPDP ACT 2023 (India) Implementation Example
 
-### System Admin Features
-1. Multi-deployment fleet view.
-2. Version management and rollout governance.
-3. Incident and major event command center.
-4. SLA and reliability control board.
-5. Security drift and policy drift detection.
-6. Cost and usage analytics across customer environments.
-7. License and entitlement governance.
-8. Support escalation and forensic tooling.
+**Purpose Limitation:**
+Every operation tagged with purpose ("customer support", "billing", "marketing"). Cannot repurpose without new consent.
 
-### Agentic Platform Features
-1. Action registry with risk classes.
-2. Approval and delegation workflows.
-3. Multi-step orchestrations with rollback semantics.
-4. Trigger engine for schedule, event, and threshold-based execution.
-5. Notification hub with channel policies and templates.
-6. Execution graph visualization and trace replay.
-7. Dry-run simulation mode for action safety validation.
+**Data Principal Rights:**
+Similar to GDPR but India-specific (correction request workflow, portability format).
 
-### First-Party Template Features
-The final product must include fully implemented first-party action templates, including the 12 baseline templates discussed for university pilots. These are executable templates, not placeholders.
+**Localization:**
+```
+Indian customer data retention policy:
+  • Sensitive data (financial, health, biometric): Must stay in India
+  • Non-sensitive: Can transfer to Singapore with proper controls
 
-Template categories:
-1. Financial assistance and fee workflows.
-2. Eligibility and compliance checks.
-3. Attendance and academic risk alerts.
-4. Leave, request, and approval workflows.
-5. Report generation and scheduled dissemination.
-6. Academic schedule and conflict detection.
+Policy:
+  WHERE data_category = 'SENSITIVE' → allowed_regions = ['India_DC']
+  WHERE data_category = 'NON_SENSITIVE' → allowed_regions = ['India_DC', 'Singapore_DC']
 
-Each template must include:
-1. Policy scope definition.
-2. Input validation schema.
-3. Approval requirements.
-4. Execution and rollback behavior.
-5. Notification payload rules.
-6. Audit event map.
-7. SLA and retry behavior.
-8. Tenant customization points.
+Enforcement:
+  User in US tries to copy customer data → BLOCKED (policy violation)
+  Audit: Attempted export logged
+```
 
-## Connector and Data Plane Strategy
-### Connector classes
-1. Relational databases.
-2. ERP and line-of-business APIs.
-3. Spreadsheet and document systems.
-4. Warehouse and analytics sources.
-5. Custom connectors through SDK.
+---
 
-### Connector quality requirements
-1. Scope-safe query execution.
-2. Robust pagination and batching.
-3. Retry and backoff with idempotency awareness.
-4. Credential refresh and secret rotation support.
-5. Circuit breaker and failure isolation.
-6. Health metrics and alerting.
-7. Schema change compatibility checks.
+## Quality Gates (Pre-Launch Checklist)
 
-### Connector certification program
-No connector can be marked production-supported without passing certification tests for:
-1. Security and credential safety.
-2. Policy enforcement compatibility.
-3. Data correctness and consistency.
-4. Performance under load.
-5. Error handling and observability quality.
+### Gate 1: Feature Completeness
+- [ ] Every features documented, implemented, tested
+- [ ] All 12 baseline templates operational (zero placeholders)
+- [ ] Every admin operation in UI (no engineering-required tasks)
+- [ ] Zero hardcoded domain assumptions
 
-## Policy and Governance Engine
-### Policy types
-1. Role-based access controls.
-2. Attribute-based access controls.
-3. Field-level restrictions and transformations.
-4. Row-level predicates.
-5. Time, context, and risk-based controls.
-6. Action-level guardrails.
+### Gate 2: Security
+- [ ] No mock auth (SAML/OIDC only)
+- [ ] Service mTLS active
+- [ ] Egress controls prevent data exfiltration
+- [ ] Red-team validation (zero critical/high vulns)
+- [ ] Secret rotation automated
 
-### Governance capabilities
-1. Policy versioning and change approvals.
-2. Policy impact simulation before activation.
-3. Policy drift detection and rollback.
-4. Human-readable policy explanations.
-5. Enforcement logs for every decision boundary.
+### Gate 3: Compliance
+- [ ] DSAR workflow tested end-to-end
+- [ ] Erasure workflow tested with recovery verification
+- [ ] HIPAA breach detection operational
+- [ ] GDPR consent workflow operational
+- [ ] Immutable audit ledger verified
 
-### Safety guarantees
-1. Unknown intent cannot bypass policy.
-2. Ambiguous intent requires clarification or safe refusal.
-3. No action execution without policy path proof.
-4. No elevation through prompt manipulation.
+### Gate 4: Performance
+- [ ] P95 latency <1000ms (interactive)
+- [ ] Throughput supports 100 concurrent users
+- [ ] Tail behavior acceptable under 10x peak load
+- [ ] Degradation mode policy-safe
 
-## Workflow and Automation Architecture
-### Workflow model
-1. Directed multi-step execution graph.
-2. Step-level preconditions and postconditions.
-3. Human-in-loop approval nodes.
-4. Conditional branch controls.
-5. Compensation and rollback nodes.
+### Gate 5: Observability
+- [ ] End-to-end tracing enabled
+- [ ] SLO dashboards live
+- [ ] Incident runbooks tested
+- [ ] Forensic export verified
 
-### Trigger model
-1. Time-based schedules.
-2. Event-based source updates.
-3. Threshold-based anomaly or metric conditions.
-4. Composite trigger logic with dependency checks.
+---
 
-### Reliability controls
-1. At-least-once vs exactly-once semantics by action class.
-2. Dead-letter queues and replay tooling.
-3. Backpressure controls for burst trigger traffic.
-4. Priority segregation between interactive and background workloads.
+## 10-Phase Execution Plan (Outcome-Based, No Timelines)
 
-## Observability and Reliability Engineering
-### Observability stack
-1. Distributed tracing across interpretation, policy, compile, and execution paths.
-2. Structured logs with sensitive-data minimization.
-3. Metrics for latency, throughput, errors, queue health, and policy denials.
-4. Alerting maps with severity and escalation policies.
+### Phase 1: Architecture Freeze
+**Outcome:** Zero ambiguity; every feature has owner + acceptance criteria
 
-### Reliability controls
-1. SLO definitions for latency, success rate, and freshness.
-2. Availability targets and incident budgets.
-3. Capacity and saturation monitoring.
-4. Graceful degradation profiles.
-5. Disaster recovery runbooks.
+### Phase 2: Security Hardening
+**Outcome:** Enterprise-grade identity, transport, egress controls
 
-### Latency transformation program
-Current baseline around 5000 ms requires component-by-component optimization.
+### Phase 3: Zero-Learning Enforcement
+**Outcome:** Runtime policy enforces non-learning; data containment proven
 
-Latency budget engineering domains:
-1. Authentication path reduction and token cache strategy.
-2. Intent path optimization and deterministic fast path for common requests.
-3. Policy evaluation optimization through compiled policy caches.
-4. Compiler optimization with precompiled query plan patterns.
-5. Connector execution optimization through pooling and indexed query strategies.
-6. Result rendering optimization with bounded payload policies.
+### Phase 4: Connector Productionization
+**Outcome:** All connectors certified, reliable, policy-safe
 
-Performance acceptance objective:
-Interactive path engineered for sub-1000 ms P95 with safe tail handling.
+### Phase 5: Interpreter Maturity
+**Outcome:** Domain-agnostic; new domains self-onboardable without hardcoding
 
-## Phase-Based Execution Plan
-No timeline is included. Phases are gating-based and outcome-based.
+### Phase 6: Agentic Completion
+**Outcome:** 12 templates executable; action registry operational
 
-### Phase 1: Product Contract and Architecture Freeze
-Objectives:
-1. Lock final capability contract.
-2. Remove ambiguity between docs and implementation.
-3. Freeze non-negotiable principles and architecture constraints.
-
-Outputs:
-1. Capability traceability matrix.
-2. Architecture decision records.
-3. Security and compliance acceptance criteria.
-4. Ownership map by subsystem.
-
-Exit criteria:
-1. Every final feature has a defined implementation owner and acceptance standard.
-2. No undocumented fallback logic remains in architecture.
-
-### Phase 2: Security and Identity Hardening
-Objectives:
-1. Eliminate prototype trust assumptions.
-2. Establish enterprise-grade identity and transport security.
-
-Outputs:
-1. SAML or OIDC with MFA enforcement.
-2. Service mTLS and secret governance.
-3. Network boundary and egress control enforcement.
-4. Security bypass and abuse-case test suites.
-
-Exit criteria:
-1. No mock identity path exists in runtime.
-2. Security controls pass red-team style validation.
-
-### Phase 3: Zero-Learning and Data-Containment Implementation
-Objectives:
-1. Enforce non-learning policy in runtime and operations.
-2. Prove no unauthorized data egress or retention.
-
-Outputs:
-1. Schema-only context strategy.
-2. Prompt and output containment policy controls.
-3. Redacted telemetry and evidence logs.
-4. Exfiltration prevention gate at outbound boundaries.
-
-Exit criteria:
-1. Data handling policy test suite passes.
-2. Non-learning evidence exports available and auditable.
-
-### Phase 4: Connector Plane Productionization
-Objectives:
-1. Replace stubs with production connectors.
-2. Ensure reliable, policy-safe source execution.
-
-Outputs:
-1. Production connector set and certification harness.
-2. Health and reliability controls.
-3. Schema governance and version impact handling.
-4. Source freshness metadata integration.
-
-Exit criteria:
-1. Supported connectors pass certification.
-2. Connector faults cannot compromise policy or leak data.
-
-### Phase 5: Interpreter and Compiler Maturity
-Objectives:
-1. Remove hardcoded domain dependencies.
-2. Guarantee deterministic safe behavior on ambiguity.
-
-Outputs:
-1. Generic operation taxonomy.
-2. Policy-aware planning and compile overlays.
-3. Clarification and safe refusal framework.
-4. Explainability and execution rationale surfaces.
-
-Exit criteria:
-1. New domains can be onboarded without code hardcoding.
-2. Unknown-intent path is safe and auditable.
-
-### Phase 6: Agentic Completion and Template Implementation
-Objectives:
-1. Deliver complete automation layer with governance.
-2. Implement all first-party templates as executable assets.
-
-Outputs:
-1. Action registry and risk classes.
-2. Workflow orchestrator with rollback and approvals.
-3. Trigger engine and notification hub.
-4. Fully implemented baseline template catalog and custom builder.
-
-Exit criteria:
-1. No placeholder templates remain.
-2. Every action has policy proof and audit completeness.
-
-### Phase 7: Compliance Operations Completion
-Objectives:
-1. Make HIPAA, GDPR, DPDP fully operational in product workflows.
-2. Deliver regulator and auditor evidence capabilities.
-
-Outputs:
-1. DSAR, erasure, consent, retention workflows.
-2. Breach operations and incident evidence exports.
-3. Processing records and legal basis controls.
-4. Immutable audit plus erasure conflict resolution implementation.
-
-Exit criteria:
-1. Compliance runbooks executable by tenant admins.
-2. Audit rehearsal passes with evidence completeness.
+### Phase 7: Compliance Operations
+**Outcome:** HIPAA/GDPR/DPDP workflows operational; evidence exportable
 
 ### Phase 8: Admin Surface Completion
-Objectives:
-1. Deliver complete no-code operational control surfaces.
-2. Eliminate dependency on engineering for governance operations.
+**Outcome:** Full no-code consoles; no engineering required for operations
 
-Outputs:
-1. Tenant admin full console.
-2. System admin fleet console.
-3. Compliance operations UI.
-4. Policy simulation and operational tooling.
+### Phase 9: Performance Hardening
+**Outcome:** <1000ms P95; SLOs met; SLA reliability proven
 
-Exit criteria:
-1. All mandatory operations are UI-driven and auditable.
-2. Operator workflows are complete for production support.
+### Phase 10: Pilot Validation
+**Outcome:** Live customer environment proof; market-ready launch
 
-### Phase 9: Performance, Reliability, and SLO Hardening
-Objectives:
-1. Meet product-grade latency and reliability gates.
-2. Ensure safe behavior under stress and degradation.
+---
 
-Outputs:
-1. End-to-end latency budgets and dashboards.
-2. Caching, pooling, and execution optimizations.
-3. Failure isolation and graceful degradation controls.
-4. Reliability drills and incident response validation.
+## Risk Register and Mitigations
 
-Exit criteria:
-1. P95 interactive latency meets target.
-2. Reliability SLOs and incident quality pass launch criteria.
+| Risk | Mitigation |
+|------|-----------|
+| **Compliance conflict** (audit vs. erasure) | Legal-approved pseudonymization + key destruction strategy |
+| **Security bypass** (hidden fallback paths) | Safe-fail architecture + adversarial testing |
+| **Latency miss** (cannot achieve <1000ms) | Budgeted optimization, load testing, certification |
+| **Connector instability** | Certification harness, circuit breakers, health monitoring |
+| **Agentic safety** (unintended action) | Risk-class approvals, dry-run mode, rollback controls |
+| **Operational complexity** (on-prem) | Standardized deployment packs, compatibility matrix, runbooks |
+| **Feature parity drift** | Traceability matrix enforced as release gate |
 
-### Phase 10: Pilot Validation and Market Readiness
-Objectives:
-1. Validate full product behavior in live university environments.
-2. Produce launch-grade operational and compliance confidence.
+---
 
-Outputs:
-1. University pilot deployment package.
-2. Persona and policy baseline packs.
-3. Live workflow and template validation reports.
-4. Security, compliance, and reliability signoff artifacts.
-5. Commercial packaging and support playbooks.
+## Conclusion: Single Source of Truth
 
-Exit criteria:
-1. Final product gates signed by Product, Security, Compliance, Legal, and Operations.
-2. Production launch readiness approved.
+This document defines ZTA-AI as a **complete, non-negotiable, production-ready platform**.
 
-## Costing Framework (Detailed)
-This section defines costing dimensions and model structure for planning and pricing. It intentionally avoids fixed market commitments and must be refined with deployment specifics.
+- **Every feature described is mandatory** (no MVP cuts)
+- **Every persona is concretely illustrated** (domain-agnostic but specific)
+- **Every use case is detailed with examples** (banking, healthcare, manufacturing, insurance, professional services)
+- **Every architecture component is explained** (with real walkthroughs)
+- **Every compliance framework is operationalized** (HIPAA, GDPR, DPDP)
+- **Every gate is defined** (launch acceptance criteria)
+- **Every risk is identified and mitigated** (risk register)
 
-### Build program cost buckets
-1. Core platform engineering.
-2. Security and compliance engineering.
-3. Admin UX and product design.
-4. Connector development and certification.
-5. Reliability and observability engineering.
-6. QA automation and release assurance.
-7. Program and product management.
+This is the reference document for Product, Engineering, Security, Compliance, Legal, and Operations alignment.
 
-### Compliance and assurance cost buckets
-1. Legal and regulatory mapping.
-2. External audit and certification support.
-3. Penetration testing and security assessments.
-4. Documentation and evidence automation.
-5. Control monitoring and periodic reassessment.
-
-### Deployment and operations cost buckets
-1. Implementation and integration effort.
-2. On-prem support and upgrades.
-3. Incident response and SRE operations.
-4. Connector maintenance and schema adaptation.
-5. Customer success and governance support.
-
-### Pricing architecture inputs
-1. Deployment mode and environment complexity.
-2. Number and class of connectors.
-3. Compliance support tier.
-4. SLA tier and support obligations.
-5. Agentic automation complexity and volume.
-
-## Risk Register and Mitigation Architecture
-### Risk 1: Compliance contradiction risk
-Description:
-Conflicts between immutable forensic requirements and deletion rights.
-Mitigation:
-Legal-technical approved retention and pseudonymization strategy with verifiable controls.
-
-### Risk 2: Security bypass risk
-Description:
-Unexpected fallback logic enables policy bypass.
-Mitigation:
-Mandatory safe-fail architecture and continuous adversarial test suites.
-
-### Risk 3: Feature parity drift
-Description:
-Documented features diverge from runtime capability.
-Mitigation:
-Capability traceability matrix as release gate with evidence links.
-
-### Risk 4: Latency target miss
-Description:
-High tail latency under real source complexity.
-Mitigation:
-Budgeted latency engineering, load profile testing, connector performance certification.
-
-### Risk 5: Connector instability
-Description:
-Source API variability introduces failures and inconsistent outputs.
-Mitigation:
-Connector certification, isolation boundaries, circuit breakers, and freshness signaling.
-
-### Risk 6: Agentic safety incident
-Description:
-Workflow executes unintended action due to misconfiguration.
-Mitigation:
-Risk-class approvals, simulation mode, rollback controls, and policy proofs.
-
-### Risk 7: Operational complexity in on-prem estates
-Description:
-Customer environment heterogeneity increases deployment burden.
-Mitigation:
-Standardized deployment packs, compatibility matrix, and hardened runbooks.
-
-## Quality Gate Framework
-### Gate A: Feature completeness
-1. Every declared feature implemented.
-2. Every baseline template executable.
-3. Every admin operation available in UI.
-
-### Gate B: Security
-1. No unresolved critical or high vulnerabilities.
-2. Bypass and abuse tests pass.
-3. Secret and key governance controls active.
-
-### Gate C: Compliance
-1. DSAR, erasure, consent, retention, and breach workflows pass UAT.
-2. Evidence export packs complete and validated.
-3. Legal signoff obtained for supported deployment models.
-
-### Gate D: Performance and reliability
-1. Interactive latency objective achieved.
-2. Error budgets and SLOs within policy.
-3. Degradation behavior remains policy-safe.
-
-### Gate E: Forensics and auditability
-1. End-to-end replay and reconstruction available.
-2. Integrity verification of audit ledger passes.
-3. Incident and event evidence chain complete.
-
-## University Pilot Productization Pack
-University pilots are the first market proving ground and require a complete packaged product experience.
-
-### Included policy and persona baselines
-1. Academic personas and delegated admin roles.
-2. Domain packs for academics, finance, HR, research, admissions.
-3. Baseline RLS and masking templates for student data protection.
-
-### Included first-party automation pack
-1. Financial reminders and payment-assist workflows.
-2. Eligibility and status checks.
-3. Attendance risk alerts.
-4. Leave and approval flows.
-5. Report generation and delivery workflows.
-6. Schedule conflict and policy events.
-
-### Included compliance operations pack
-1. Consent and legal basis workflows.
-2. DSAR and erasure execution pack.
-3. Processing activity and audit exports.
-4. Breach handling and notification workflow templates.
-
-### Pilot success criteria
-1. Demonstrated scoped access enforcement.
-2. Demonstrated workflow automation with approvals and rollback.
-3. Demonstrated compliance operation execution by tenant admin.
-4. Demonstrated stability and low-latency operation under live usage.
-
-## Product Limitations and Tradeoffs
-These are acceptable and intentional tradeoffs for the final secure product.
-
-1. Zero-learning constraints reduce adaptive personalization from customer interaction history.
-2. Compliance rigor adds governance overhead to change velocity.
-3. On-prem support breadth increases implementation and support complexity.
-4. Strict policy controls may increase clarifying interactions for ambiguous requests.
-5. Some advanced autonomous behaviors remain constrained by approval and risk policy design.
-
-## Final Product Acceptance Definition
-ZTA-AI is final-product ready when all phase exits and quality gates are satisfied and independently validated.
-
-The final product must prove in live enterprise conditions that it can:
-1. Answer accurately within policy scope.
-2. Automate safely through constrained agentic workflows.
-3. Operate without data learning from customer records.
-4. Produce full forensic evidence for any query or action.
-5. Execute compliance workflows natively for HIPAA, GDPR, and DPDP.
-6. Sustain production reliability and latency requirements.
-
-## Governance and Continuous Improvement Model
-After launch, improvement must remain compliant with zero-learning policy.
-
-### Improvement channels
-1. Policy refinement.
-2. Template and workflow evolution.
-3. Connector and schema quality improvements.
-4. Prompt engineering improvements using synthetic and non-sensitive test corpora.
-5. Operational tuning through metadata analytics.
-
-### Prohibited improvement channels
-1. Training on customer records.
-2. Persistent memory using sensitive customer payloads.
-3. External analytics enrichment using identifiable customer response content.
-
-## Final Statement
-This plan defines ZTA-AI as a full enterprise product, not a prototype.
-It preserves your complete vision with no feature cuts.
-It includes detailed phase-based execution, complete feature scope, compliance readiness, security architecture, agentic design, operational governance, risk handling, and acceptance gates required for market-grade launch.
+All other decisions, designs, and implementations flow from this plan.
