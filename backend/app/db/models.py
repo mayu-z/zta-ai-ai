@@ -111,6 +111,9 @@ class Tenant(Base):
     users: Mapped[list["User"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan"
     )
+    intent_detection_keywords: Mapped[list["IntentDetectionKeyword"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
 
 
 class User(Base):
@@ -128,6 +131,12 @@ class User(Base):
     admin_function: Mapped[str | None] = mapped_column(String(100), nullable=True)
     course_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     masked_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    mfa_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    mfa_totp_secret: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    mfa_enrolled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     status: Mapped[UserStatus] = mapped_column(
         Enum(UserStatus), nullable=False, default=UserStatus.active
     )
@@ -418,12 +427,205 @@ class AuditLog(Base):
     )
 
 
+class ActionExecution(Base):
+    __tablename__ = "action_executions"
+
+    execution_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    action_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    input_payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    requested_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+    approval_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    approver_role: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    approval_due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    approved_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approval_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    escalated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    escalation_target: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    output: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    steps: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    audit_events: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+
+
+Index(
+    "ix_action_executions_tenant_requested_at",
+    ActionExecution.tenant_id,
+    ActionExecution.requested_at,
+    unique=False,
+)
+Index(
+    "ix_action_executions_tenant_status",
+    ActionExecution.tenant_id,
+    ActionExecution.status,
+    unique=False,
+)
+Index(
+    "ix_action_executions_tenant_action",
+    ActionExecution.tenant_id,
+    ActionExecution.action_id,
+    unique=False,
+)
+
+
+class ActionTemplateOverride(Base):
+    __tablename__ = "action_template_overrides"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    action_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    trigger_override: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    approval_required_override: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    approver_role_override: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sla_hours_override: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    execution_steps_override: Mapped[list[str] | None] = mapped_column(
+        JSON, nullable=True
+    )
+    updated_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+
+
+Index(
+    "ix_action_template_overrides_tenant_action",
+    ActionTemplateOverride.tenant_id,
+    ActionTemplateOverride.action_id,
+    unique=True,
+)
+
+
+class ComplianceCase(Base):
+    __tablename__ = "compliance_cases"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    case_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    subject_identifier: Mapped[str] = mapped_column(String(255), nullable=False)
+    action_execution_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    requested_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    sla_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+    delivery_method: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    legal_basis: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    legal_hold_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    legal_hold_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_action_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    output: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    case_events: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+
+
+Index(
+    "ix_compliance_cases_tenant_requested_at",
+    ComplianceCase.tenant_id,
+    ComplianceCase.requested_at,
+    unique=False,
+)
+Index(
+    "ix_compliance_cases_tenant_case_type_status",
+    ComplianceCase.tenant_id,
+    ComplianceCase.case_type,
+    ComplianceCase.status,
+    unique=False,
+)
+Index(
+    "ix_compliance_cases_tenant_execution",
+    ComplianceCase.tenant_id,
+    ComplianceCase.action_execution_id,
+    unique=True,
+)
+
+
+class ComplianceAttestation(Base):
+    __tablename__ = "compliance_attestations"
+
+    attestation_id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=_uuid
+    )
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    framework: Mapped[str] = mapped_column(String(40), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requested_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    payload_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature_algorithm: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="HMAC-SHA256"
+    )
+    signature: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+
+
+Index(
+    "ix_compliance_attestations_tenant_framework_created_at",
+    ComplianceAttestation.tenant_id,
+    ComplianceAttestation.framework,
+    ComplianceAttestation.created_at,
+    unique=False,
+)
+Index(
+    "ix_compliance_attestations_tenant_period",
+    ComplianceAttestation.tenant_id,
+    ComplianceAttestation.period_start,
+    ComplianceAttestation.period_end,
+    unique=False,
+)
+
+
 class IntentDetectionKeyword(Base):
     __tablename__ = "intent_detection_keywords"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("tenants.id"), nullable=False
+        String(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     intent_name: Mapped[str] = mapped_column(String(120), nullable=False)
     keyword_type: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -436,6 +638,8 @@ class IntentDetectionKeyword(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
     )
+
+    tenant: Mapped[Tenant] = relationship(back_populates="intent_detection_keywords")
 
 
 Index(
