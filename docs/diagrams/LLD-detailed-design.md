@@ -1,5 +1,7 @@
 # ZTA-AI Low Level Design (LLD)
 
+**Plan Alignment:** This LLD is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). If implementation details here diverge from plan requirements, use the plan. See `docs/PLAN_ALIGNMENT.md`.
+
 ## 1. Database Schema (ERD)
 
 ```mermaid
