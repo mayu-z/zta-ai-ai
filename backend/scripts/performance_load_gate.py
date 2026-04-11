@@ -27,20 +27,20 @@ os.environ.setdefault(
 )
 os.environ.setdefault("AUTH_PROVIDER", "mock_google")
 os.environ.setdefault("USE_MOCK_GOOGLE_OAUTH", "true")
-os.environ.setdefault("ZTA_SEED_PROFILE", "test")
 os.environ.setdefault("SLM_PROVIDER", "simulator")
 
 from app.api.deps import get_scope_from_token
-from app.db.session import SessionLocal
+from app.db.models import Base
+from app.db.session import SessionLocal, engine
 from app.main import app
 from app.schemas.pipeline import ScopeContext
 from app.services.pipeline import pipeline_service
-from scripts.seed_data import seed
+from scripts.ipeds_import import seed_ipeds_claims
 
 
 DEFAULT_ENDPOINT = "/admin/system/fleet-health?lookback_hours=24"
-DEFAULT_LOGIN_TOKEN = "mock:ithead@ipeds.local"
-DEFAULT_QUERY_LOGIN_TOKEN = "mock:executive@ipeds.local"
+DEFAULT_LOGIN_TOKEN = "mock:ithead@local.test"
+DEFAULT_QUERY_LOGIN_TOKEN = "mock:executive@local.test"
 DEFAULT_QUERY_TEXT = "Give me campus aggregate KPI summary."
 
 
@@ -625,14 +625,28 @@ async def _run_recovery_check(
         await asyncio.sleep(normalized_interval)
 
 
+def _bootstrap_runtime_dataset(profile: str) -> None:
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+
+    db = SessionLocal()
+    try:
+        seed_ipeds_claims(db, profile=profile)
+        db.commit()
+    finally:
+        db.close()
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run Phase 9 API performance/load gate checks."
     )
     parser.add_argument(
+        "--dataset-profile",
         "--seed-profile",
+        dest="dataset_profile",
         default="test",
-        help="Seed profile used before running load checks (default: test)",
+        help="Synthetic dataset profile used before running load checks (default: test)",
     )
     parser.add_argument(
         "--endpoint",
@@ -831,7 +845,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 async def _run_gate(args: argparse.Namespace) -> int:
-    seed(profile=args.seed_profile)
+    _bootstrap_runtime_dataset(profile=str(args.dataset_profile))
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
@@ -961,7 +975,7 @@ async def _run_gate(args: argparse.Namespace) -> int:
     report = {
         "generated_at": datetime.now(tz=UTC).isoformat(),
         "endpoint": args.endpoint,
-        "seed_profile": args.seed_profile,
+        "dataset_profile": args.dataset_profile,
         "overall_status": "pass" if passed else "fail",
         "scenarios": [asdict(item) for item in scenario_results],
         "recovery": asdict(recovery_result),
