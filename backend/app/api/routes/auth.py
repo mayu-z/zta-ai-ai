@@ -25,12 +25,21 @@ from app.schemas.auth import (
     OIDCAuthRequest,
     RefreshRequest,
     RefreshResponse,
+    SystemAdminMockLoginRequest,
 )
 from app.schemas.pipeline import ScopeContext
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
 settings = get_settings()
+
+
+def _allowed_system_admin_emails() -> set[str]:
+    return {
+        item.strip().lower()
+        for item in str(settings.system_admin_allowed_emails).split(",")
+        if item.strip()
+    }
 
 
 @router.post("/google", response_model=AuthResponse)
@@ -48,6 +57,68 @@ def auth_google(
             name=user.name,
             persona=user.persona_type.value,
             department=user.department,
+        ),
+    )
+
+
+@router.post("/system-admin/mock-login", response_model=AuthResponse)
+def auth_system_admin_mock(payload: SystemAdminMockLoginRequest) -> AuthResponse:
+    if settings.environment.strip().lower() == "production":
+        raise AuthenticationError(
+            message="System admin mock login is disabled in production",
+            code="SYSTEM_ADMIN_MOCK_DISABLED",
+        )
+
+    if not bool(settings.enable_system_admin_mock_login):
+        raise AuthenticationError(
+            message="System admin mock login is disabled by configuration",
+            code="SYSTEM_ADMIN_MOCK_DISABLED",
+        )
+
+    prefix = settings.system_admin_mock_token_prefix
+    token = payload.admin_token.strip()
+    if not token.startswith(prefix):
+        raise AuthenticationError(
+            message="System admin token prefix is invalid",
+            code="SYSTEM_ADMIN_TOKEN_INVALID",
+        )
+
+    email = token[len(prefix) :].strip().lower()
+    if "@" not in email:
+        raise AuthenticationError(
+            message="System admin email is invalid",
+            code="SYSTEM_ADMIN_TOKEN_INVALID",
+        )
+
+    allowed = _allowed_system_admin_emails()
+    if allowed and email not in allowed:
+        raise AuthenticationError(
+            message="System admin account is not allow-listed",
+            code="SYSTEM_ADMIN_NOT_ALLOWED",
+        )
+
+    local_part = email.split("@", 1)[0]
+    name = local_part.replace(".", " ").replace("_", " ").title() or "System Admin"
+    session_id = str(uuid.uuid4())
+    token_payload = {
+        "sub": f"sysadmin:{email}",
+        "email": email,
+        "name": name,
+        "persona_type": "system_admin",
+        "is_system_admin": True,
+        "session_id": session_id,
+        "jti": str(uuid.uuid4()),
+    }
+    jwt_token = create_access_token(token_payload)
+
+    return AuthResponse(
+        jwt=jwt_token,
+        user=AuthUser(
+            id=f"sysadmin:{email}",
+            email=email,
+            name=name,
+            persona="system_admin",
+            department="global",
         ),
     )
 

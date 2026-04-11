@@ -7,6 +7,10 @@ class GoogleAuthRequest(BaseModel):
     google_token: str = Field(min_length=3)
 
 
+class SystemAdminMockLoginRequest(BaseModel):
+    admin_token: str = Field(min_length=8)
+
+
 class OIDCAuthRequest(BaseModel):
     id_token: str = Field(min_length=20)
 
