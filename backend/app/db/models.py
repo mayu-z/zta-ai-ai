@@ -427,6 +427,131 @@ class AuditLog(Base):
     )
 
 
+class ControlGraphNode(Base):
+    __tablename__ = "control_graph_nodes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    node_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    node_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    attributes: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now, onupdate=_utc_now
+    )
+
+
+Index(
+    "ix_control_graph_nodes_tenant_type_key",
+    ControlGraphNode.tenant_id,
+    ControlGraphNode.node_type,
+    ControlGraphNode.node_key,
+    unique=True,
+)
+Index(
+    "ix_control_graph_nodes_tenant_type",
+    ControlGraphNode.tenant_id,
+    ControlGraphNode.node_type,
+    unique=False,
+)
+
+
+class ControlGraphEdge(Base):
+    __tablename__ = "control_graph_edges"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    edge_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_node_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("control_graph_nodes.id"), nullable=False
+    )
+    target_node_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("control_graph_nodes.id"), nullable=False
+    )
+    attributes: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+
+
+Index(
+    "ix_control_graph_edges_tenant_type_pair",
+    ControlGraphEdge.tenant_id,
+    ControlGraphEdge.edge_type,
+    ControlGraphEdge.source_node_id,
+    ControlGraphEdge.target_node_id,
+    unique=True,
+)
+Index(
+    "ix_control_graph_edges_tenant_source",
+    ControlGraphEdge.tenant_id,
+    ControlGraphEdge.source_node_id,
+    unique=False,
+)
+Index(
+    "ix_control_graph_edges_tenant_target",
+    ControlGraphEdge.tenant_id,
+    ControlGraphEdge.target_node_id,
+    unique=False,
+)
+
+
+class PolicyProofArtifact(Base):
+    __tablename__ = "policy_proofs"
+
+    proof_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    proof_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    tenant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("tenants.id"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    pipeline_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    intent_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    domain: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_binding_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    data_source_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    compiled_signature: Mapped[str] = mapped_column(Text, nullable=False)
+    scope_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    policy_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    masked_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    reasoning: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_now
+    )
+
+
+Index(
+    "ix_policy_proofs_tenant_created",
+    PolicyProofArtifact.tenant_id,
+    PolicyProofArtifact.created_at,
+    unique=False,
+)
+Index(
+    "ix_policy_proofs_tenant_session",
+    PolicyProofArtifact.tenant_id,
+    PolicyProofArtifact.session_id,
+    unique=False,
+)
+Index(
+    "ix_policy_proofs_tenant_intent",
+    PolicyProofArtifact.tenant_id,
+    PolicyProofArtifact.intent_hash,
+    unique=False,
+)
+
+
 class ActionExecution(Base):
     __tablename__ = "action_executions"
 
