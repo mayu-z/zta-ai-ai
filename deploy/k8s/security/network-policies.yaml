@@ -1,0 +1,167 @@
+# ZTA-AI baseline NetworkPolicy set for Kubernetes deployments.
+#
+# Important:
+# - Replace namespace and label selectors to match your chart values.
+# - Apply this only after confirming pod labels for api/worker/postgres/redis.
+# - This set intentionally implements deny-by-default and only opens required paths.
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress-egress
+  namespace: zta-ai
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: zta-ai
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-ingress-from-ingress-controller
+  namespace: zta-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zta-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-egress-internal
+  namespace: zta-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zta-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-worker-egress-internal
+  namespace: zta-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zta-worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-ingress-from-app
+  namespace: zta-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zta-postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-worker
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-ingress-from-app
+  namespace: zta-ai
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zta-redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zta-worker
+      ports:
+        - protocol: TCP
+          port: 6379

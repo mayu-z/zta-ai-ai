@@ -1,0 +1,37 @@
+# Example policy for explicit outbound HTTPS allowlisting.
+#
+# Kubernetes NetworkPolicy cannot natively allow by hostname/FQDN on most CNIs.
+# Resolve approved domains to CIDR ranges and update ipBlock entries below.
+# Keep these CIDRs aligned with backend EGRESS_ALLOWED_HOSTS.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-approved-external-https-egress
+  namespace: zta-ai
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - zta-api
+          - zta-worker
+  policyTypes:
+    - Egress
+  egress:
+    # Example OIDC IdP network range (replace with real CIDRs).
+    - to:
+        - ipBlock:
+            cidr: 203.0.113.0/24
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # Example SLM provider network range (replace with real CIDRs).
+    - to:
+        - ipBlock:
+            cidr: 198.51.100.0/24
+      ports:
+        - protocol: TCP
+          port: 443
