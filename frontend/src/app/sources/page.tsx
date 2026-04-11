@@ -54,6 +54,7 @@ function lastSyncText(value: string | null): string {
 export default function SourcesPage() {
   const router = useRouter();
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
   const hydrated = useAuthStore((state) => state.hydrated);
   const connected = useWsStore((state) => state.connected);
   const addError = useToastStore((state) => state.addError);
@@ -66,6 +67,10 @@ export default function SourcesPage() {
     }
     if (!token) {
       router.replace("/login");
+      return;
+    }
+    if (user?.persona !== "it_head") {
+      router.replace("/chat");
       return;
     }
 
@@ -81,7 +86,7 @@ export default function SourcesPage() {
         addError(message);
         setSources([]);
       });
-  }, [addError, hydrated, router, token]);
+  }, [addError, hydrated, router, token, user?.persona]);
 
   const summary = useMemo(() => {
     const safeSources = sources ?? [];
@@ -92,7 +97,7 @@ export default function SourcesPage() {
     };
   }, [sources]);
 
-  if (!hydrated || !token) {
+  if (!hydrated || !token || user?.persona !== "it_head") {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
         <div className="w-full max-w-3xl space-y-3">
