@@ -67,6 +67,7 @@ from app.services.compliance_case_service import compliance_case_service
 from app.services.compliance_attestation_service import compliance_attestation_service
 from app.services.compliance_operations import compliance_operations_service
 from app.services.compliance_retention_service import compliance_retention_service
+from app.services.control_plane_graph_service import control_plane_graph_service
 from app.services.system_admin_service import system_admin_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -2655,4 +2656,35 @@ def clear_intent_cache(
         "cleared_redis": deleted_redis,
         "cleared_db": deleted_db,
         "message": "Intent cache cleared successfully. New queries will use fresh templates.",
+    }
+
+
+@router.get("/graph/overview")
+def get_control_plane_graph_overview(
+    proofs_limit: int = Query(default=20, ge=1, le=200),
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
+    return control_plane_graph_service.get_tenant_graph_overview(
+        db=db,
+        tenant_id=scope.tenant_id,
+        proofs_limit=proofs_limit,
+    )
+
+
+@router.post("/graph/rebuild")
+def rebuild_control_plane_graph(
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
+    counts = control_plane_graph_service.rebuild_tenant_graph(
+        db=db,
+        tenant_id=scope.tenant_id,
+    )
+    db.commit()
+    return {
+        "tenant_id": scope.tenant_id,
+        "node_count": int(counts.get("node_count", 0)),
+        "edge_count": int(counts.get("edge_count", 0)),
+        "message": "Control-plane graph rebuilt successfully",
     }
