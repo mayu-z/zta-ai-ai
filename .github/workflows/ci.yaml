@@ -55,7 +55,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 black isort mypy bandit safety
+          pip install flake8 black isort mypy bandit pip-audit
 
       - name: Lint with flake8 (critical)
         run: |
@@ -89,6 +89,29 @@ jobs:
         run: |
           python -m pytest -q tests -p no:cacheprovider
 
+      - name: Phase 9 performance load gate
+        env:
+          AUTH_PROVIDER: mock_google
+          USE_MOCK_GOOGLE_OAUTH: "true"
+          ZTA_SEED_PROFILE: test
+        run: |
+          python scripts/performance_load_gate.py \
+            --max-inflight-requests 10 \
+            --recovery-timeout-seconds 300 \
+            --recovery-check-interval-seconds 10 \
+            --query-login-token mock:executive@ipeds.local \
+            --query-warmup-requests 10 \
+            --regression-baseline-file scripts/performance_regression_baseline.json \
+            --regression-max-p95-percent 30 \
+            --regression-max-p99-percent 30 \
+            --regression-max-error-rate-delta-percent 0.1
+
+      - name: Phase 10 pilot readiness preflight
+        run: |
+          python scripts/pilot_validation_gate.py \
+            --pilot-evidence-file scripts/pilot_validation_evidence.template.json \
+            --require-performance-metrics
+
       - name: Smoke test - app boots and /health passes
         run: |
           uvicorn app.main:app --host 0.0.0.0 --port 8000 &
@@ -99,8 +122,8 @@ jobs:
       - name: Bandit - Python security scan
         run: bandit -r app/ -ll
 
-      - name: Safety - dependency CVE check
-        run: safety check -r requirements.txt || true
+      - name: pip-audit - dependency CVE check
+        run: pip-audit -r requirements.txt
 
       - name: Trivy - filesystem vulnerability scan
         uses: aquasecurity/trivy-action@master
