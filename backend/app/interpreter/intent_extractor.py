@@ -62,6 +62,23 @@ def _keyword_match_stats(lower_prompt: str, keywords: tuple[str, ...]) -> tuple[
     return match_count, first_index
 
 
+def _detection_keyword_match_count(
+    lower_prompt: str,
+    intent_name: str,
+    detection_keywords: dict[str, dict[str, list[str]]],
+) -> int:
+    by_type = detection_keywords.get(intent_name, {})
+    if not by_type:
+        return 0
+
+    count = 0
+    for keywords in by_type.values():
+        for keyword in keywords:
+            if _keyword_matches(lower_prompt, keyword):
+                count += 1
+    return count
+
+
 def _extract_filters(prompt: str) -> dict[str, str]:
     lower_prompt = prompt.lower()
     filters: dict[str, str] = {}
@@ -141,34 +158,7 @@ def extract_intent(
     # Try to match a specific intent rule by weighted keyword scoring.
     # This avoids first-match bias when multiple rules share common keywords.
     rule: IntentRule | None = None
-    best_score: tuple[int, int, int, int, int] | None = None
-
-    # Targeted safety override for grade-vs-attendance collisions.
-    # If grade semantics are explicit, prefer grade intent over generic subject/attendance rules.
-    # Grade markers loaded from database; allows tenant-specific customization.
-    grade_markers = detection_keywords.get("student_grades", {}).get("grade_marker", [])
-    has_grade_marker = any(marker in lower_prompt for marker in grade_markers)
-
-    if has_grade_marker and persona_type == "student":
-        forced = next(
-            (
-                candidate
-                for candidate in rules
-                if candidate.name == "student_grades"
-                and candidate.domain in detected_domains
-                and _persona_matches(candidate, persona_type)
-            ),
-            None,
-        )
-        if forced is not None:
-            return _build_intent(
-                forced,
-                raw_prompt,
-                sanitized_prompt,
-                aliased_prompt,
-                detected_domains,
-                lower_prompt,
-            )
+    best_score: tuple[int, int, int, int, int, int] | None = None
 
     for candidate in rules:
         # Skip rules that don't match detected domains
@@ -178,14 +168,23 @@ def extract_intent(
             continue
 
         match_count, first_index = _keyword_match_stats(lower_prompt, candidate.keywords)
-        if match_count == 0:
+
+        detection_match_count = _detection_keyword_match_count(
+            lower_prompt=lower_prompt,
+            intent_name=candidate.name,
+            detection_keywords=detection_keywords,
+        )
+
+        if match_count == 0 and detection_match_count == 0:
             continue
 
         # Score order:
-        # 1) more matched keywords, 2) prefer specific (non-default) rules,
-        # 3) earlier keyword mention, 4) lower rule priority number,
-        # 5) more rule keywords as a weak specificity tie-break.
+        # 1) detection-keyword matches, 2) matched rule keywords,
+        # 3) prefer specific (non-default) rules,
+        # 4) earlier keyword mention, 5) lower rule priority number,
+        # 6) more rule keywords as a weak specificity tie-break.
         candidate_score = (
+            detection_match_count,
             match_count,
             1 if not candidate.is_default else 0,
             -first_index,
@@ -201,8 +200,14 @@ def extract_intent(
     if rule is None:
         rule = _select_fallback_rule(rules, detected_domains, persona_type)
 
-    return _build_intent(rule, raw_prompt, sanitized_prompt, aliased_prompt,
-                         detected_domains, lower_prompt)
+    return _build_intent(
+        rule,
+        raw_prompt,
+        sanitized_prompt,
+        aliased_prompt,
+        detected_domains,
+        lower_prompt,
+    )
 
 
 def _build_intent(
@@ -224,6 +229,7 @@ def _build_intent(
         name=rule.name,
         domain=rule.domain,
         entity_type=rule.entity_type,
+        persona_types=rule.persona_types,
         raw_prompt=raw_prompt,
         sanitized_prompt=sanitized_prompt,
         aliased_prompt=aliased_prompt,
