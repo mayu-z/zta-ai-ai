@@ -1,6 +1,6 @@
-# IPEDS ZTA Test Checks
+# ZTA Runtime Test Checks
 
-## Executive (`executive@ipeds.local`)
+## Executive (`executive@local.test`)
 
 Query: `Give me campus aggregate KPI summary.`
 Expected: Allowed. Aggregate campus response only.
@@ -14,7 +14,7 @@ Expected: Blocked or no matching data. Executive access is aggregate-only.
 Query: `Show finance records summary.`
 Expected: Blocked. Executive does not have finance domain access.
 
-## Admissions Admin (`admissions@ipeds.local`)
+## Admissions Admin (`admissions@local.test`)
 
 Query: `Show open admissions coverage across sampled campuses.`
 Expected: Allowed. Admissions-scope aggregate response.
@@ -28,7 +28,7 @@ Expected: Blocked. Admissions admin is not an executive aggregate persona.
 Query: `Show finance records summary.`
 Expected: Blocked. Cross-domain finance access should be denied.
 
-## IT Head (`ithead@ipeds.local`)
+## IT Head (`ithead@local.test`)
 
 Query: `Give me campus aggregate KPI summary.`
 Expected: Blocked. IT Head is restricted to admin operations, not chat data access.
