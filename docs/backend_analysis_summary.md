@@ -1,5 +1,7 @@
 # Backend Analysis Summary
 
+**Plan Alignment:** This analysis snapshot is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). For production expectations and phased outcomes, use the plan as authority. See `docs/PLAN_ALIGNMENT.md`.
+
 ## Base URL and Routing
 - Base URL: `http://localhost:8000`
 - Route groups:
@@ -10,7 +12,8 @@
 
 ## Authentication Mechanism
 - Auth type: JWT Bearer (`Authorization: Bearer <token>`)
-- Login endpoint: `POST /auth/google`
+- Login endpoints: `POST /auth/google` (development), `POST /auth/oidc` (production)
+- MFA endpoints: `POST /auth/mfa/totp/enroll`, `POST /auth/mfa/totp/verify`
 - Token refresh: `POST /auth/refresh`
 - Logout/revocation: `POST /auth/logout`
 - WebSocket auth: query token (`/chat/stream?token=<jwt>`)
