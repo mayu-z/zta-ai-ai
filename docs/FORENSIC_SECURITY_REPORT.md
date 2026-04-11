@@ -1,5 +1,7 @@
 # ZTA-AI Forensic Security Report
 
+**Plan Alignment:** This report is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). Use the plan for authoritative rollout sequencing and quality gates. See `docs/PLAN_ALIGNMENT.md`.
+
 **Report Date:** April 2026
 **Classification:** Internal Security Assessment
 **Assessor:** Security Architecture Review
