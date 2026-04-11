@@ -1,5 +1,7 @@
 # ZTA-AI: Zero Trust Architecture AI System (SLM-Strict)
 
+**Plan Alignment:** This overview is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). If any statement conflicts, the production plan is the source of truth. See `docs/PLAN_ALIGNMENT.md`.
+
 ## Overview
 
 ZTA-AI is a **production-grade, enterprise data access system** that enables natural language interaction with internal data while enforcing **strict Zero Trust principles**.
