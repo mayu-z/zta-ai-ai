@@ -6,11 +6,13 @@ Next.js command console for the ZTA-AI backend.
 
 ## Features
 
-- Role-based mock login using seeded personas (`mock:<email>`)
+- Role-based mock login using email-driven dev auto-provision (`mock:<email>`)
+- Global system-admin login (`mock_admin:<email>`) for tenant onboarding
 - Dedicated demo routes:
 	- `/chat` for conversational workspace
 	- `/monitor` for pipeline telemetry and stage feed
 	- `/admin` for admin controls and snapshots
+	- `/system-admin` for tenant CRUD and mock onboarding
 - WebSocket chat streaming (`/chat/stream`)
 - Real-time pipeline monitor (`/admin/pipeline/monitor`)
 - Admin dashboard (users, policies, data sources, audit view, kill switch)
@@ -33,6 +35,7 @@ Demo pages:
 - http://localhost:3000/chat
 - http://localhost:3000/monitor
 - http://localhost:3000/admin
+- http://localhost:3000/system-admin
 
 Backend expected at: http://localhost:8000
 
