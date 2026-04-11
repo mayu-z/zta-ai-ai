@@ -20,19 +20,6 @@ services:
     ports:
       - "6379:6379"
 
-  db-init:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - ./backend/.env
-    environment:
-      DATABASE_URL: postgresql+psycopg2://zta:zta@postgres:5432/zta_ai
-    command: python -m scripts.bootstrap_seed
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   api:
     build:
       context: ./backend
@@ -53,8 +40,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      db-init:
-        condition: service_completed_successfully
 
   worker:
     build:
@@ -74,8 +59,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      db-init:
-        condition: service_completed_successfully
 
   frontend:
     build:
