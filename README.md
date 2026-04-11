@@ -1,5 +1,7 @@
 # ZTA-AI: Zero Trust Architecture AI System (SLM-Strict)
 
+**Plan Alignment:** This document is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). If any section conflicts, the plan file is authoritative. See `docs/PLAN_ALIGNMENT.md`.
+
 **Secure Enterprise AI Platform with Zero Trust Data Isolation**
 
 ---
@@ -37,7 +39,7 @@ This repository hosts the interactive documentation and specification pages for 
 - **Output Validation** -- All SLM outputs are validated against input claims to detect hallucinations and ensure schema compliance.
 - **Immutable Audit Trail** -- Every query, policy decision, and data access event is logged with full traceability.
 - **Multi-Tenant SaaS Architecture** -- Org-level isolation with support for on-premises deployment.
-- **Sub-Second Response Times** -- p95 latency under 500ms for the deterministic pipeline.
+- **Performance Hardening Target** -- Production hardening target is `<1000ms P95` as defined in the plan; lower latency claims require benchmark validation per environment.
 
 ---
 
