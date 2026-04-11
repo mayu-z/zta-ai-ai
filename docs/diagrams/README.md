@@ -1,5 +1,7 @@
 # ZTA-AI Architecture Diagrams
 
+**Plan Alignment:** Diagram intent is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). For canonical scope, phase gates, and security/compliance requirements, use the plan first. See `docs/PLAN_ALIGNMENT.md`.
+
 This directory contains High Level Design (HLD) and Low Level Design (LLD) diagrams for the ZTA-AI platform.
 
 ## Files
