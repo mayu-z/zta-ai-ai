@@ -65,9 +65,25 @@ class SLMSimulator:
     def _single_api_key_from_secret_store(self) -> str | None:
         key = secret_manager.get_secret(
             "SLM_API_KEY",
-            fallback=self.settings.slm_api_key,
+            fallback=self.settings.slm_api_key or self.settings.openai_api_key,
         ).strip()
         return key or None
+
+    def _effective_base_url(self) -> str:
+        provider = self.settings.slm_provider.strip().lower()
+        if provider == "openai":
+            base_url = (self.settings.openai_base_url or "").strip()
+            if base_url:
+                return base_url
+        return self.settings.slm_base_url
+
+    def _effective_model(self) -> str:
+        provider = self.settings.slm_provider.strip().lower()
+        if provider == "openai":
+            model = (self.settings.openai_model or "").strip()
+            if model:
+                return model
+        return self.settings.slm_model
 
     def _refresh_slm_credentials(self) -> None:
         api_keys = self._parse_api_keys()
@@ -108,9 +124,15 @@ class SLMSimulator:
 
     def _parse_api_keys(self) -> list[str]:
         """Parse comma-separated API keys from SLM_API_KEYS setting."""
-        return secret_manager.get_csv_secret(
+        keys = secret_manager.get_csv_secret(
             "SLM_API_KEYS",
             fallback_csv=self.settings.slm_api_keys,
+        )
+        if keys:
+            return keys
+        return secret_manager.get_csv_secret(
+            "OPENAI_API_KEYS",
+            fallback_csv=self.settings.openai_api_keys,
         )
 
     def _get_active_api_key(self) -> tuple[str | None, int | None]:
@@ -228,17 +250,25 @@ class SLMSimulator:
             return True
         return False
 
-    def render_template(self, intent: InterpretedIntent, scope: ScopeContext) -> str:
+    def render_template(
+        self,
+        intent: InterpretedIntent,
+        scope: ScopeContext,
+        graph_context: dict[str, object] | None = None,
+    ) -> str:
         """
         Generate a response template using the hosted SLM.
 
         Always delegates to SLM - no hardcoded templates or fallbacks.
         This ensures dynamic, context-aware template generation as per spec.
         """
-        return self._render_with_hosted_slm(intent, scope)
+        return self._render_with_hosted_slm(intent, scope, graph_context)
 
     def _render_with_hosted_slm(
-        self, intent: InterpretedIntent, scope: ScopeContext
+        self,
+        intent: InterpretedIntent,
+        scope: ScopeContext,
+        graph_context: dict[str, object] | None = None,
     ) -> str:
         active_key, key_index = self._get_active_api_key()
         if not active_key:
@@ -260,7 +290,7 @@ class SLMSimulator:
                         code="SLM_CLIENT_UNAVAILABLE",
                     )
 
-                result = self._call_slm_api(client, intent, scope)
+                result = self._call_slm_api(client, intent, scope, graph_context)
 
                 # Record successful request for rate tracking
                 if self._key_manager and self._current_key_index is not None:
@@ -333,7 +363,11 @@ class SLMSimulator:
         return None
 
     def _call_slm_api(
-        self, client: Any, intent: InterpretedIntent, scope: ScopeContext
+        self,
+        client: Any,
+        intent: InterpretedIntent,
+        scope: ScopeContext,
+        graph_context: dict[str, object] | None = None,
     ) -> str:
         """Make the actual SLM API call and process the response."""
         try:
@@ -401,12 +435,39 @@ class SLMSimulator:
                 )
                 or "[SLOT_1]"
             )
+            graph_context_block = ""
+            if graph_context:
+                graph_domain = str(graph_context.get("domain") or intent.domain)
+                graph_role = str(graph_context.get("role_key") or scope.role_key or "")
+                graph_sources = graph_context.get("bound_sources")
+                graph_sources_text = ""
+                if isinstance(graph_sources, list):
+                    normalized_sources = [str(item) for item in graph_sources[:4] if str(item)]
+                    if normalized_sources:
+                        graph_sources_text = ", ".join(normalized_sources)
+                graph_masks = graph_context.get("masked_fields")
+                graph_masks_text = ""
+                if isinstance(graph_masks, list):
+                    normalized_masks = [str(item) for item in graph_masks[:6] if str(item)]
+                    if normalized_masks:
+                        graph_masks_text = ", ".join(normalized_masks)
+
+                graph_context_block = (
+                    "Knowledge graph context (control-plane, authoritative):\n"
+                    f"- Domain node: {graph_domain}\n"
+                    f"- Role policy: {graph_role or 'none'}\n"
+                    f"- Bound source hints: {graph_sources_text or 'none'}\n"
+                    f"- Masked fields policy: {graph_masks_text or 'none'}\n"
+                    "Use this graph context to shape wording and reasoning while preserving strict slot placeholders.\n\n"
+                )
+
             prompt = (
                 "You are a trusted rendering assistant inside a Zero Trust AI system. "
                 "Your job is to generate a natural, helpful, human-readable response template for a user query. "
                 "You will be given the user's role, their intent, and the data slots that will be filled in later by the trusted system. "
                 "Think carefully about what this user actually needs to know and how to present it clearly.\n\n"
                 f"User role: {scope.persona_type}\n"
+                f"User request: {intent.sanitized_prompt}\n"
                 f"Intent: {intent.name}\n"
                 f"Domain: {intent.domain}\n"
                 f"Entity type: {intent.entity_type}\n"
@@ -414,6 +475,7 @@ class SLMSimulator:
                 f"You are only allowed exactly {len(intent.slot_keys)} slot(s). "
                 f"Do not use [SLOT_{len(intent.slot_keys) + 1}] or any higher number. "
                 f"If you only have 1 slot, your entire response must only reference [SLOT_1].\n"
+                f"{graph_context_block}"
                 f"{audience_context}\n"
                 "Never say 'in the dataset', 'in the database', or 'in the system'. "
                 "Use natural business language that matches the user scope and role.\n"
@@ -438,7 +500,7 @@ class SLMSimulator:
             zero_learning_headers = build_zero_learning_headers(self.settings)
 
             completion = client.chat.completions.create(
-                model=self.settings.slm_model,
+                model=self._effective_model(),
                 messages=[
                     {
                         "role": "system",
@@ -545,7 +607,7 @@ class SLMSimulator:
 
             try:
                 enforce_egress_url_allowed(
-                    target_url=self.settings.slm_base_url,
+                    target_url=self._effective_base_url(),
                     raw_allowlist=self.settings.egress_allowed_hosts,
                 )
             except RuntimeError as exc:
@@ -555,7 +617,7 @@ class SLMSimulator:
                 ) from exc
 
             self._client = openai.OpenAI(
-                base_url=self.settings.slm_base_url,
+                base_url=self._effective_base_url(),
                 api_key=current_key,
                 http_client=self._get_transport_client(),
             )
