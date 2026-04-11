@@ -1,10 +1,30 @@
 # Production Deployment Guide: Intent Detection Keywords Refactor
 
+**Plan Alignment:** This deployment guide is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). The plan is authoritative for phase gates and production acceptance criteria. See `docs/PLAN_ALIGNMENT.md`.
+
 ## Overview
 
 This document provides step-by-step instructions for deploying the architectural refactor that moves intent detection keywords (and eventually other hardcoded business logic) from Python code to database configuration.
 
 **Goal:** Enable zero-downtime deployment of changes that remove hardcoded business decisions and make ZTA a pure policy mediation layer.
+
+---
+
+## Phase 2 Security Artifacts
+
+The following production hardening artifacts are now available and should be applied as part of security phase execution:
+
+- Kubernetes baseline network policies: `deploy/k8s/security/network-policies.yaml`
+- Kubernetes approved external egress template: `deploy/k8s/security/external-egress-policy.example.yaml`
+- Incident response runbook: `docs/incident-response-playbook.md`
+
+Recommended order:
+
+1. Align label selectors and namespace values with your environment.
+2. Apply baseline network policies and verify pod-to-pod traffic.
+3. Configure approved external egress CIDRs and verify outbound dependencies (OIDC/SLM).
+4. Issue mTLS certificates using `backend/scripts/generate_mtls_artifacts.sh` and configure `SERVICE_MTLS_*` values.
+5. Validate incident response on-call flow with a tabletop drill.
 
 ---
 
