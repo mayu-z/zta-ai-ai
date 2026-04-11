@@ -24,21 +24,6 @@ services:
     networks:
       - zta-network
 
-  db-init:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    env_file:
-      - ./backend/.env
-    environment:
-      DATABASE_URL: postgresql+psycopg2://zta:zta@postgres:5432/zta_ai
-    command: python -m scripts.bootstrap_seed
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - zta-network
-
   api:
     build:
       context: ./backend
@@ -59,8 +44,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      db-init:
-        condition: service_completed_successfully
     networks:
       - zta-network
 
@@ -82,8 +65,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-      db-init:
-        condition: service_completed_successfully
     networks:
       - zta-network
 
