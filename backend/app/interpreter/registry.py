@@ -44,6 +44,65 @@ _DERIVED_DOMAIN_KEYWORD_STOPWORDS = {
     "view",
 }
 
+# Runtime keyword hints improve natural-language domain detection for existing
+# tenants without requiring a DB reseed.
+_RUNTIME_DOMAIN_KEYWORD_HINTS: dict[str, tuple[str, ...]] = {
+    "academic": (
+        "class",
+        "classes",
+        "subject",
+        "subjects",
+        "enrolled",
+        "enrollment",
+        "enrolment",
+        "semester",
+        "gpa",
+    ),
+    "finance": (
+        "fees",
+        "balance",
+        "balances",
+        "due",
+        "tuition",
+        "scholarship",
+    ),
+    "hr": (
+        "vacation",
+        "timesheet",
+        "workload",
+    ),
+    "admissions": (
+        "admission",
+        "applications",
+        "applicant",
+        "applicants",
+    ),
+    "exam": (
+        "exams",
+        "results",
+        "scores",
+    ),
+    "department": (
+        "departments",
+        "hod",
+    ),
+    "campus": (
+        "hostel",
+        "infrastructure",
+        "institution",
+    ),
+    "admin": (
+        "users",
+        "access",
+        "permissions",
+    ),
+    "notices": (
+        "notices",
+        "announcements",
+        "alerts",
+    ),
+}
+
 
 def _normalize_keywords(values: list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
     if not values:
@@ -122,6 +181,15 @@ def load_domain_keywords(
             message="No active domain keyword configuration is available for this tenant",
             code="DOMAIN_KEYWORDS_NOT_CONFIGURED",
         )
+
+    # Merge built-in hints for better natural-language matching.
+    for domain, hints in _RUNTIME_DOMAIN_KEYWORD_HINTS.items():
+        existing = list(loaded.get(domain, ()))
+        for hint in hints:
+            if hint not in existing:
+                existing.append(hint)
+        if existing:
+            loaded[domain] = tuple(existing)
 
     return loaded, AGGREGATION_MODIFIERS
 
