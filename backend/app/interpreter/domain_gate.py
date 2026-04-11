@@ -77,6 +77,16 @@ def detect_domains(
         "institution wide",
         "all institutions",
     )
+    campus_metric_markers = (
+        "enrollment",
+        "headcount",
+        "institution",
+        "demographics",
+        "hbcu",
+        "public",
+        "private",
+        "size distribution",
+    )
 
     # Second pass: if no explicit domain found but aggregation modifiers are present,
     # only infer campus for executive/admin-style prompts or explicit campus wording.
@@ -94,7 +104,13 @@ def detect_domains(
     # If campus was inferred from broad KPI language but another explicit domain is
     # present, prefer the explicit domain unless the prompt explicitly asks campus-wide.
     if "campus" in detected and len(detected) > 1:
-        if not any(_keyword_matches(lower_prompt, marker) for marker in explicit_campus_markers):
+        has_explicit_campus = any(
+            _keyword_matches(lower_prompt, marker) for marker in explicit_campus_markers
+        )
+        has_campus_metric_signal = any(
+            _keyword_matches(lower_prompt, marker) for marker in campus_metric_markers
+        )
+        if not has_explicit_campus and not has_campus_metric_signal:
             detected = [domain for domain in detected if domain != "campus"]
 
     return sorted(set(detected))
@@ -114,7 +130,11 @@ def enforce_domain_gate(
         if not is_domain_allowed(domain, allowed_domains)
     ]
     if blocked:
+        allowed_display = ", ".join(sorted(set(allowed_domains))) or "none"
         raise AuthorizationError(
-            message=f"Domain gate blocked out-of-scope domains: {', '.join(blocked)}",
+            message=(
+                f"Out-of-scope domain(s): {', '.join(blocked)}. "
+                f"Allowed domains for your role: {allowed_display}."
+            ),
             code="DOMAIN_FORBIDDEN",
         )
