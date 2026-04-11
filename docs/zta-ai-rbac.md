@@ -1,5 +1,7 @@
 # ZTA-AI — Role-Based & Attribute-Based Access Control (SLM-Strict)
 
+**Plan Alignment:** This RBAC/ABAC reference is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). For production policy scope and compliance operations, the plan is authoritative. See `docs/PLAN_ALIGNMENT.md`.
+
 **// RBAC + ABAC — Multi-Role Isolation Engine**
 
 **Note**: The SLM is **fundamentally untrusted** and receives only pre-approved, sanitized claim payloads. All access control decisions are made by the **Policy Engine** in the trusted layer before any data reaches the SLM.
