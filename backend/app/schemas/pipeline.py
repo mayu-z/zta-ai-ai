@@ -43,6 +43,8 @@ class InterpretedIntent(BaseModel):
     name: str
     domain: str
     entity_type: str
+    persona_type: str | None = None
+    request_style: str | None = None
     persona_types: tuple[str, ...] = ()
     raw_prompt: str
     sanitized_prompt: str
@@ -57,6 +59,8 @@ class InterpretedIntent(BaseModel):
             "name": self.name,
             "domain": self.domain,
             "entity_type": self.entity_type,
+            "persona_type": self.persona_type,
+            "request_style": self.request_style,
             "filters": self.filters,
             "aggregation": self.aggregation,
             "slot_keys": self.slot_keys,
@@ -111,6 +115,7 @@ class PipelineResult(BaseModel):
     latency_ms: int
     intent_hash: str
     domains_accessed: list[str]
+    policy_proof_ids: list[str] = Field(default_factory=list)
     was_blocked: bool = False
     block_reason: str | None = None
 

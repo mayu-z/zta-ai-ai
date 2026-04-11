@@ -8,10 +8,12 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import cast
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.compiler.service import compiler_service
 from app.core.exceptions import ZTAError
+from app.db.models import ControlGraphEdge, ControlGraphNode
 from app.interpreter.cache import intent_cache_service
 from app.interpreter.conversational import detect_conversational_query, is_unclear_query
 from app.interpreter.service import interpreter_service
@@ -21,11 +23,13 @@ from app.schemas.pipeline import (
     CompiledQueryPlan,
     InterpreterOutput,
     PipelineResult,
+    PolicyDecision,
     ScopeContext,
 )
 from app.services.audit_service import audit_service
 from app.services.history_service import history_service
 from app.services.pipeline_monitor import pipeline_monitor
+from app.services.policy_proof_service import policy_proof_service
 from app.slm.output_guard import output_guard
 from app.slm.simulator import slm_simulator
 from app.tool_layer.service import tool_layer_service
@@ -177,6 +181,79 @@ class PipelineService:
 
         return "\n\n".join(sections)
 
+    def _append_course_scope_context(
+        self,
+        *,
+        response_text: str,
+        scope: ScopeContext,
+        query_text: str,
+    ) -> str:
+        if scope.persona_type != "faculty":
+            return response_text
+        if not scope.course_ids:
+            return response_text
+
+        lower_query = query_text.lower()
+        if not any(marker in lower_query for marker in ("course", "courses", "teaching", "handling")):
+            return response_text
+
+        if any(course_id in response_text for course_id in scope.course_ids):
+            return response_text
+
+        course_list = ", ".join(scope.course_ids)
+        return f"{response_text} Courses in your scope: {course_list}."
+
+    def _build_graph_reasoning_context(
+        self,
+        *,
+        db: Session,
+        scope: ScopeContext,
+        intent_domain: str,
+    ) -> dict[str, object] | None:
+        domain_node = db.scalar(
+            select(ControlGraphNode).where(
+                ControlGraphNode.tenant_id == scope.tenant_id,
+                ControlGraphNode.node_type == "domain",
+                ControlGraphNode.node_key == intent_domain,
+            )
+        )
+        if domain_node is None:
+            return None
+
+        bound_sources: list[str] = []
+        edge_rows = db.scalars(
+            select(ControlGraphEdge).where(
+                ControlGraphEdge.tenant_id == scope.tenant_id,
+                ControlGraphEdge.edge_type == "domain_bound_to_source",
+                ControlGraphEdge.source_node_id == domain_node.id,
+            )
+        ).all()
+        for edge in edge_rows:
+            target_node = db.scalar(
+                select(ControlGraphNode).where(
+                    ControlGraphNode.tenant_id == scope.tenant_id,
+                    ControlGraphNode.id == edge.target_node_id,
+                )
+            )
+            if target_node is None:
+                continue
+            if target_node.node_type == "data_source":
+                source_type = ""
+                if isinstance(target_node.attributes, dict):
+                    source_type = str(target_node.attributes.get("source_type") or "")
+                label = source_type or target_node.label or target_node.node_key
+                if label:
+                    bound_sources.append(str(label))
+            elif target_node.node_type == "source_type":
+                bound_sources.append(target_node.node_key)
+
+        return {
+            "domain": intent_domain,
+            "role_key": scope.role_key or scope.persona_type,
+            "bound_sources": list(dict.fromkeys(bound_sources)),
+            "masked_fields": scope.masked_fields,
+        }
+
     def process_query(
         self, db: Session, scope: ScopeContext, query_text: str
     ) -> PipelineResult:
@@ -184,6 +261,7 @@ class PipelineService:
         started = time.perf_counter()
         intent_hash = ""
         domains: list[str] = []
+        policy_proof_ids: list[str] = []
 
         # Emit pipeline start metadata for monitoring
         pipeline_monitor.emit_pipeline_start(
@@ -343,11 +421,27 @@ class PipelineService:
                         scope, interpreter_output.intent, db
                     )
                 with self._track_stage(pipeline_id, "policy_authorization", 3):
-                    policy_engine.authorize(
+                    policy_decision = policy_engine.authorize(
                         scope, interpreter_output.intent, compiled_query
                     )
                 with self._track_stage(pipeline_id, "tool_execution", 4):
                     values = tool_layer_service.execute(db, compiled_query)
+
+                with self._track_stage(pipeline_id, "policy_proof", 5):
+                    policy_proof_ids = policy_proof_service.persist_query_proofs(
+                        db=db,
+                        scope=scope,
+                        query_text=query_text,
+                        intent_hash=interpreter_output.intent_hash,
+                        pipeline_id=pipeline_id,
+                        proofs=[
+                            {
+                                "compiled_query": compiled_query,
+                                "policy_decision": policy_decision,
+                                "masked_fields": [],
+                            }
+                        ],
+                    )
 
                 latency_ms = int((time.perf_counter() - started) * 1000)
 
@@ -387,6 +481,12 @@ class PipelineService:
                             lines.append(f"{i}. {name} ({source_type}) — {status}")
                         final_response = "Connected data sources:\n" + "\n".join(lines)
 
+                final_response = self._append_course_scope_context(
+                    response_text=final_response,
+                    scope=scope,
+                    query_text=query_text,
+                )
+
                 history_service.append(
                     scope.tenant_id,
                     scope.user_id,
@@ -420,6 +520,7 @@ class PipelineService:
                     latency_ms=latency_ms,
                     intent_hash=interpreter_output.intent_hash,
                     domains_accessed=[interpreter_output.intent.domain],
+                    policy_proof_ids=policy_proof_ids,
                     was_blocked=False,
                 )
 
@@ -478,7 +579,7 @@ class PipelineService:
                 for unit in execution_units:
                     unit_output = cast(InterpreterOutput, unit["interpreter_output"])
                     compiled_query = cast(CompiledQueryPlan, unit["compiled_query"])
-                    policy_engine.authorize(
+                    unit["policy_decision"] = policy_engine.authorize(
                         scope,
                         unit_output.intent,
                         compiled_query,
@@ -495,9 +596,15 @@ class PipelineService:
                 ):
                     for unit in units_to_render:
                         unit_output = cast(InterpreterOutput, unit["interpreter_output"])
+                        graph_context = self._build_graph_reasoning_context(
+                            db=db,
+                            scope=scope,
+                            intent_domain=unit_output.intent.domain,
+                        )
                         unit["template"] = slm_simulator.render_template(
                             unit_output.intent,
                             scope,
+                            graph_context,
                         )
             else:
                 # Emit skipped event if cache hit
@@ -581,15 +688,48 @@ class PipelineService:
 
                 final_response = self._compose_multi_domain_response(domain_responses)
 
+            final_response = self._append_course_scope_context(
+                response_text=final_response,
+                scope=scope,
+                query_text=query_text,
+            )
+
             latency_ms = int((time.perf_counter() - started) * 1000)
 
-            # Stage 10: Cache storage (conditional on cache miss)
+            # Stage 10: Deterministic policy proof persistence
+            with self._track_stage(
+                pipeline_id,
+                "policy_proof",
+                10,
+                {"intent_count": len(execution_units)},
+            ):
+                proof_payloads = [
+                    {
+                        "compiled_query": cast(CompiledQueryPlan, unit["compiled_query"]),
+                        "policy_decision": cast(
+                            PolicyDecision | None,
+                            unit.get("policy_decision"),
+                        ),
+                        "masked_fields": cast(list[str], unit["masked_fields_applied"]),
+                    }
+                    for unit in execution_units
+                ]
+                policy_proof_ids = policy_proof_service.persist_query_proofs(
+                    db=db,
+                    scope=scope,
+                    query_text=query_text,
+                    intent_hash=interpreter_output.intent_hash,
+                    pipeline_id=pipeline_id,
+                    proofs=proof_payloads,
+                )
+
+            # Stage 11: Cache storage (conditional on cache miss)
             cache_miss_units = [unit for unit in execution_units if not bool(unit["cache_hit"])]
             if cache_miss_units:
                 with self._track_stage(
                     pipeline_id,
                     "cache_storage",
-                    10,
+                    11,
                     {"cache_write_count": len(cache_miss_units)},
                 ):
                     for unit in cache_miss_units:
@@ -609,13 +749,13 @@ class PipelineService:
                 pipeline_monitor.emit_stage_event(
                     pipeline_id=pipeline_id,
                     stage_name="cache_storage",
-                    stage_index=10,
+                    stage_index=11,
                     status="skipped",
                     metadata={"reason": "cache_hit"},
                 )
 
-            # Stage 11: Store assistant message in history
-            with self._track_stage(pipeline_id, "history_assistant_message", 11):
+            # Stage 12: Store assistant message in history
+            with self._track_stage(pipeline_id, "history_assistant_message", 12):
                 history_service.append(
                     scope.tenant_id,
                     scope.user_id,
@@ -624,8 +764,8 @@ class PipelineService:
                     final_response,
                 )
 
-            # Stage 12: Audit logging
-            with self._track_stage(pipeline_id, "audit_logging", 12):
+            # Stage 13: Audit logging
+            with self._track_stage(pipeline_id, "audit_logging", 13):
                 self._enqueue_audit_event(
                     scope=scope,
                     query_text=query_text,
@@ -658,6 +798,7 @@ class PipelineService:
                 latency_ms=latency_ms,
                 intent_hash=intent_hash,
                 domains_accessed=domains,
+                policy_proof_ids=policy_proof_ids,
                 was_blocked=False,
             )
 
