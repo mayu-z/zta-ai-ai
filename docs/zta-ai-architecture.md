@@ -1,4 +1,7 @@
 # ZTA-AI — System Architecture (SLM-Strict)
+
+**Plan Alignment:** This architecture narrative is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). Use the plan file as canonical for deployment, compliance, and phase completion definitions. See `docs/PLAN_ALIGNMENT.md`.
+
 **Zero Trust Architecture — Internal AI Assistant Platform**
 
 ---
