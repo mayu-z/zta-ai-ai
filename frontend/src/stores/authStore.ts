@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { loginWithMockGoogle, logoutSession } from "@/lib/api";
+import { loginPlatformAdmin, loginWithEmail, logoutSession } from "@/lib/api";
 import type { AuthResponse, AuthUser, ScopeClaims } from "@/types";
 
 interface AuthState {
@@ -11,7 +11,7 @@ interface AuthState {
   hydrated: boolean;
   setSession: (session: AuthResponse) => void;
   clearSession: () => void;
-  login: (email: string) => Promise<void>;
+  login: (email: string, options?: { systemAdmin?: boolean }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -79,8 +79,10 @@ export const useAuthStore = create<AuthState>()(
       clearSession: () => {
         set({ user: null, token: null, scope: null });
       },
-      login: async (email: string) => {
-        const response = await loginWithMockGoogle(email);
+      login: async (email: string, options?: { systemAdmin?: boolean }) => {
+        const response = options?.systemAdmin
+          ? await loginPlatformAdmin(email)
+          : await loginWithEmail(email);
         get().setSession(response);
       },
       logout: async () => {

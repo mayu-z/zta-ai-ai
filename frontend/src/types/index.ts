@@ -4,27 +4,8 @@ export type PersonaType =
   | "executive"
   | "it_head"
   | "dept_head"
-  | "admin_staff";
-
-export type PersonaKey =
-  | "executive"
-  | "student"
-  | "faculty"
-  | "it_head"
-  | "admissions"
-  | "finance"
-  | "hr"
-  | "exam"
-  | "hod_cse"
-  | "hod_ece"
-  | "hod_me"
-  | "hod_ce"
-  | "hod_bba"
-  | "hod_law"
-  | "hod_med"
-  | "hod_bio"
-  | "hod_math"
-  | "hod_art";
+  | "admin_staff"
+  | "system_admin";
 
 export interface AuthUser {
   id: string;
@@ -164,16 +145,76 @@ export interface DataSourceItem {
   last_sync_at: string | null;
 }
 
-export interface PersonaOption {
-  key: PersonaKey;
-  type: PersonaType;
-  name: string;
-  email: string;
+export interface GovernanceRoleMap {
+  role_key: string;
+  display_name: string;
+  allowed_domains: string[];
+  masked_fields: string[];
+  row_scope_mode: string | null;
+  aggregate_only: boolean;
+  chat_enabled: boolean;
 }
 
-export interface PersonaGroupOption {
-  title: string;
-  items: PersonaOption[];
+export interface GovernanceLineage {
+  domain: string;
+  source_type: string;
+  data_source_id: string | null;
+  data_source_name: string | null;
+  data_source_status: string | null;
+  is_active: boolean;
+}
+
+export interface GovernancePolicyProof {
+  proof_id: string;
+  intent_hash: string;
+  domain: string;
+  source_type: string;
+  masked_fields: string[];
+  created_at: string;
+}
+
+export interface GraphOverviewResponse {
+  summary: {
+    total_nodes: number;
+    total_edges: number;
+    last_graph_rebuild_at: string;
+  };
+  nodes_by_type: Record<string, number>;
+  edges_by_type: Record<string, number>;
+  role_map: GovernanceRoleMap[];
+  data_lineage: GovernanceLineage[];
+  recent_policy_proofs: GovernancePolicyProof[];
+}
+
+export interface ActionTemplateItem {
+  action_id: string;
+  trigger: string;
+  risk_classification: string;
+  required_permissions: string[];
+  required_data_scope: string[];
+  audit_implications: string[];
+  allowed_personas: string[];
+  approval_requirements: {
+    required?: boolean;
+    approver_role?: string;
+  };
+  enabled?: boolean;
+  override?: {
+    is_enabled?: boolean;
+    approval_required_override?: boolean | null;
+    approver_role_override?: string | null;
+    sla_hours_override?: number | null;
+  } | null;
+}
+
+export interface ActionTemplateListResponse {
+  templates: ActionTemplateItem[];
+  health: {
+    healthy: boolean;
+    template_count: number;
+    errors: string[];
+  };
+  requested_by: string;
 }
 
 export const PERSONA_BADGE_COLOR: Record<PersonaType, string> = {
@@ -183,148 +224,8 @@ export const PERSONA_BADGE_COLOR: Record<PersonaType, string> = {
   it_head: "bg-primary-tint text-primary-hover border-primary",
   dept_head: "bg-primary-tint text-primary-hover border-primary",
   admin_staff: "bg-primary-tint text-primary-hover border-primary",
+  system_admin: "bg-primary-tint text-primary-hover border-primary",
 };
-
-export const PERSONA_GROUPS: PersonaGroupOption[] = [
-  {
-    title: "Executive",
-    items: [
-      {
-        key: "executive",
-        type: "executive",
-        name: "Executive Council",
-        email: "executive@ipeds.local",
-      },
-    ],
-  },
-  {
-    title: "Student",
-    items: [
-      {
-        key: "student",
-        type: "student",
-        name: "Student Primary",
-        email: "student@ipeds.local",
-      },
-    ],
-  },
-  {
-    title: "Faculty",
-    items: [
-      {
-        key: "faculty",
-        type: "faculty",
-        name: "Faculty Primary",
-        email: "faculty@ipeds.local",
-      },
-    ],
-  },
-  {
-    title: "Department Heads",
-    items: [
-      {
-        key: "hod_cse",
-        type: "dept_head",
-        name: "CSE Department Head",
-        email: "hod.cse@ipeds.local",
-      },
-      {
-        key: "hod_ece",
-        type: "dept_head",
-        name: "ECE Department Head",
-        email: "hod.ece@ipeds.local",
-      },
-      {
-        key: "hod_me",
-        type: "dept_head",
-        name: "ME Department Head",
-        email: "hod.me@ipeds.local",
-      },
-      {
-        key: "hod_ce",
-        type: "dept_head",
-        name: "CE Department Head",
-        email: "hod.ce@ipeds.local",
-      },
-      {
-        key: "hod_bba",
-        type: "dept_head",
-        name: "BBA Department Head",
-        email: "hod.bba@ipeds.local",
-      },
-      {
-        key: "hod_law",
-        type: "dept_head",
-        name: "LAW Department Head",
-        email: "hod.law@ipeds.local",
-      },
-      {
-        key: "hod_med",
-        type: "dept_head",
-        name: "MED Department Head",
-        email: "hod.med@ipeds.local",
-      },
-      {
-        key: "hod_bio",
-        type: "dept_head",
-        name: "BIO Department Head",
-        email: "hod.bio@ipeds.local",
-      },
-      {
-        key: "hod_math",
-        type: "dept_head",
-        name: "MATH Department Head",
-        email: "hod.math@ipeds.local",
-      },
-      {
-        key: "hod_art",
-        type: "dept_head",
-        name: "ART Department Head",
-        email: "hod.art@ipeds.local",
-      },
-    ],
-  },
-  {
-    title: "Admin Staff",
-    items: [
-      {
-        key: "admissions",
-        type: "admin_staff",
-        name: "Admissions Office",
-        email: "admissions@ipeds.local",
-      },
-      {
-        key: "finance",
-        type: "admin_staff",
-        name: "Finance Office",
-        email: "finance@ipeds.local",
-      },
-      {
-        key: "hr",
-        type: "admin_staff",
-        name: "HR Office",
-        email: "hr@ipeds.local",
-      },
-      {
-        key: "exam",
-        type: "admin_staff",
-        name: "Exam Office",
-        email: "exam@ipeds.local",
-      },
-    ],
-  },
-  {
-    title: "IT Head",
-    items: [
-      {
-        key: "it_head",
-        type: "it_head",
-        name: "IT Head",
-        email: "ithead@ipeds.local",
-      },
-    ],
-  },
-];
 
 export const PIPELINE_GROUPS: PipelineGroup[] = [
   { id: "intake", label: "INTAKE" },
@@ -396,6 +297,12 @@ export const PIPELINE_STAGE_DEFINITIONS: PipelineStageDefinition[] = [
     name: "Field Masking",
     group: "execution",
     backendStages: ["field_masking"],
+  },
+  {
+    key: "output_policy_proof",
+    name: "Policy Proof",
+    group: "output",
+    backendStages: ["policy_proof"],
   },
   {
     key: "output_detokenization",

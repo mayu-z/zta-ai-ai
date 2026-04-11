@@ -1,9 +1,11 @@
 import type {
+  ActionTemplateListResponse,
   AuditLogResponse,
   AuthResponse,
   ChatHistoryItem,
   ChatSuggestion,
   DataSourceItem,
+  GraphOverviewResponse,
 } from "@/types";
 
 export const API_BASE_URL = "/api";
@@ -86,11 +88,20 @@ export async function apiRequest<T>(
   return payload as T;
 }
 
-export function loginWithMockGoogle(email: string): Promise<AuthResponse> {
+export function loginWithEmail(email: string): Promise<AuthResponse> {
   return apiRequest<AuthResponse>("/auth/google", {
     method: "POST",
     body: {
       google_token: `mock:${email}`,
+    },
+  });
+}
+
+export function loginPlatformAdmin(email: string): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>("/auth/system-admin/mock-login", {
+    method: "POST",
+    body: {
+      admin_token: `mock_admin:${email}`,
     },
   });
 }
@@ -127,6 +138,34 @@ export function getAuditLog(
 export function getDataSources(token: string): Promise<DataSourceItem[]> {
   return apiRequest<DataSourceItem[]>("/admin/data-sources", { token });
 }
+
+export function getGraphOverview(
+  token: string,
+  proofsLimit = 20
+): Promise<GraphOverviewResponse> {
+  return apiRequest<GraphOverviewResponse>(
+    `/admin/graph/overview?proofs_limit=${proofsLimit}`,
+    { token }
+  );
+}
+
+export function getActionTemplates(token: string): Promise<ActionTemplateListResponse> {
+  return apiRequest<ActionTemplateListResponse>("/admin/actions/templates", { token });
+}
+
+export function rebuildGraph(token: string): Promise<{ node_count: number; edge_count: number }> {
+  return apiRequest<{ node_count: number; edge_count: number }>(
+    "/admin/graph/rebuild",
+    {
+      method: "POST",
+      token,
+    }
+  );
+}
+
+// Backward-compatible exports used by older runtime components.
+export const loginWithMockGoogle = loginWithEmail;
+export const loginSystemAdminMock = loginPlatformAdmin;
 
 export function getLatencyFlag(latencyMs: number): "suspicious" | "normal" | "high" {
   if (latencyMs < 500) {
