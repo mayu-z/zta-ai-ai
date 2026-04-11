@@ -6,7 +6,9 @@ This backend implements the ZTA-AI security pipeline from the Engineering Specif
 
 Client -> Identity -> Interpreter -> Compiler -> Policy Engine -> Tool Layer -> Data Sources -> Compiler De-tokenization -> Response
 
-The SLM layer generates dynamic templates via a hosted model (NVIDIA Phi-3) and outputs `[SLOT_N]` placeholders only. No hardcoded templates are used.
+The SLM layer generates dynamic templates via a hosted OpenAI-compatible model and outputs `[SLOT_N]` placeholders only. No hardcoded templates are used.
+
+By default, the hosted reasoning layer uses OpenAI-compatible APIs and applies control-plane knowledge graph context (role policy + domain/source lineage + masking metadata) when producing templates.
 
 ## 1. Prerequisites
 
@@ -31,24 +33,15 @@ copy .env.example .env
 docker compose up -d postgres redis
 ```
 
-## 4. Initialize Schema + Seed Campus Mock Data
+## 4. Initialize Schema (Seedless Default)
 
-```bash
-python scripts/seed_data.py
-```
+Schema tables are created automatically on API startup. Demo/data seeding is disabled in default local flow.
 
-This performs a full reset (`drop_all/create_all`) and seeds a large, deterministic campus-university mock dataset across all domains (`academic`, `finance`, `hr`, `admissions`, `exam`, `department`, `campus`, `admin`, `notices`).
+In development, first successful mock login auto-provisions:
 
-Seed profiles:
-
-- `full` (default): high-volume data for end-to-end validation.
-- `test`: lightweight dataset for fast test runs.
-
-Use a profile explicitly:
-
-```bash
-ZTA_SEED_PROFILE=full python scripts/seed_data.py
-```
+- tenant for the email domain
+- user identity for that email
+- baseline role policies and interpreter defaults
 
 ## 5. Start API and Worker
 
@@ -76,9 +69,34 @@ For local mock login (`AUTH_PROVIDER=mock_google` and `USE_MOCK_GOOGLE_OAUTH=tru
 
 ```json
 {
-  "google_token": "mock:executive@ipeds.local"
+  "google_token": "mock:ithead@local.test"
 }
 ```
+
+Global system-admin mock login (separate from tenant users):
+
+`POST /auth/system-admin/mock-login`
+
+```json
+{
+  "admin_token": "mock_admin:sysadmin@zta.local"
+}
+```
+
+Create tenant + bootstrap mock university users/data:
+
+`POST /system-admin/tenants`
+
+```json
+{
+  "tenant_name": "College One",
+  "email_domain": "college1.com",
+  "seed_mock_users": true,
+  "seed_mock_claims": true
+}
+```
+
+After a tenant is onboarded, any `*@college1.com` mock login can auto-provision user identity/role mapping on first sign-in.
 
 For OIDC login (`AUTH_PROVIDER=oidc`):
 
@@ -127,6 +145,8 @@ Run `scripts/postgres_hardening.sql` in production to enforce DB-level append-on
 
 Set `EGRESS_ALLOWED_HOSTS` in production so outbound calls are limited to approved domains (for example `integrate.api.nvidia.com`). Startup fails in production if this allowlist is missing or does not include the configured SLM host.
 
+For OpenAI defaults, include `api.openai.com` in `EGRESS_ALLOWED_HOSTS` and set `OPENAI_API_KEY` (or `OPENAI_API_KEYS`).
+
 Service-to-service mTLS is enforced in production startup checks. Configure:
 
 - `SERVICE_MTLS_ENABLED=true`
@@ -169,20 +189,17 @@ Security incident response runbook:
 
 - `docs/incident-response-playbook.md`
 
-## 9. Default Seed Users
+## 9. Development Login (No Seed Required)
 
-| User | Persona | Description |
-|------|---------|-------------|
-| `executive@ipeds.local` | Executive | Aggregate campus and cross-domain KPI views |
-| `admissions@ipeds.local` | Admin Staff | Admissions office scoped summaries |
-| `finance@ipeds.local` | Admin Staff | Finance office scoped summaries |
-| `hr@ipeds.local` | Admin Staff | HR office scoped summaries|
-| `exam@ipeds.local` | Admin Staff | Examination office scoped summaries |
-| `ithead@ipeds.local` | IT Head | Admin-domain only (business chat blocked) |
-| `faculty@ipeds.local` | Faculty | Course-scoped faculty data |
-| `student@ipeds.local` | Student | Owner-scoped student data |
+In mock mode, login uses `mock:<email>` token format.
 
-In mock mode, all use `mock:<email>` token format.
+Examples:
+
+- `mock:ithead@local.test` (auto-provisions IT Head style admin access)
+- `mock:executive@local.test` (auto-provisions executive-style aggregate scope)
+- `mock:faculty@local.test` or `mock:student@local.test` (persona inferred from email)
+
+For tenant onboarding-first mode, keep `DEV_AUTO_CREATE_TENANT_ON_LOGIN=false` so unknown domains are rejected until created via `/system-admin/tenants`.
 
 ## 10. Tests
 
@@ -194,7 +211,7 @@ Phase 9 performance load gate (plan-aligned admin API normal/peak/burst/recovery
 
 ```bash
 AUTH_PROVIDER=mock_google USE_MOCK_GOOGLE_OAUTH=true python scripts/performance_load_gate.py \
-  --query-login-token mock:executive@ipeds.local \
+  --query-login-token mock:executive@local.test \
   --query-warmup-requests 10 \
   --regression-baseline-file scripts/performance_regression_baseline.json
 ```
@@ -203,7 +220,7 @@ To regenerate baseline metrics after approved performance improvements:
 
 ```bash
 AUTH_PROVIDER=mock_google USE_MOCK_GOOGLE_OAUTH=true python scripts/performance_load_gate.py \
-  --query-login-token mock:executive@ipeds.local \
+  --query-login-token mock:executive@local.test \
   --query-warmup-requests 10 \
   --skip-regression-check \
   --write-regression-baseline-file scripts/performance_regression_baseline.json
