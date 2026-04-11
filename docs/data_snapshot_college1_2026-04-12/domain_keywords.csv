@@ -1,0 +1,10 @@
+id,tenant_id,domain,keywords,is_active,created_at,updated_at
+dede98af-23de-4ba2-865a-84244c05d58d,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,academic,"[""academic"", ""course"", ""student"", ""grade"", ""attendance""]",t,2026-04-11 15:43:18.562276+00,2026-04-11 15:43:18.562283+00
+7fae8056-3e01-44c1-9c49-8077b50ec108,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,admin,"[""admin"", ""policy"", ""security"", ""audit""]",t,2026-04-11 15:43:18.56231+00,2026-04-11 15:43:18.56231+00
+53a17c65-521b-4f10-b985-5e166bb3c9d0,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,admissions,"[""admissions"", ""application"", ""enrollment"", ""intake""]",t,2026-04-11 15:43:18.562301+00,2026-04-11 15:43:18.562301+00
+ec6ad0da-7815-4c03-a4cb-40a63c1ff1e9,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,campus,"[""campus"", ""facility"", ""operations"", ""transport""]",t,2026-04-11 15:43:18.562308+00,2026-04-11 15:43:18.562308+00
+9b3c7975-51de-480c-9ad0-ca30da075443,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,department,"[""department"", ""team"", ""faculty"", ""program""]",t,2026-04-11 15:43:18.562305+00,2026-04-11 15:43:18.562306+00
+3426ba23-49bf-49c0-af8b-1709e8ed16e2,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,exam,"[""exam"", ""result"", ""schedule"", ""assessment"", ""marks""]",t,2026-04-11 15:43:18.562303+00,2026-04-11 15:43:18.562304+00
+a48e53d6-3498-4ffe-a7c6-670aae7ab187,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,finance,"[""finance"", ""budget"", ""payment"", ""fee"", ""invoice""]",t,2026-04-11 15:43:18.562294+00,2026-04-11 15:43:18.562295+00
+5190f18c-37c7-4978-96b5-8c73c2edef9d,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,hr,"[""hr"", ""employee"", ""staff"", ""leave"", ""payroll""]",t,2026-04-11 15:43:18.562298+00,2026-04-11 15:43:18.562298+00
+bdfc1373-b11d-4af9-b5d6-a485ed117993,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,notices,"[""notice"", ""announcement"", ""update"", ""circular""]",t,2026-04-11 15:43:18.562312+00,2026-04-11 15:43:18.562312+00

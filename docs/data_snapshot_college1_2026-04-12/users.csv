@@ -1,0 +1,23 @@
+id,tenant_id,email,name,persona_type,department,external_id,admin_function,course_ids,status,created_at
+1321de64-954b-4b69-8738-40a68a7164a7,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,admissions@college1.com,Admissions Office,admin_staff,,ADM-5DC96E8D,admissions,[],active,2026-04-11 15:43:18.570494+00
+b5095516-c2e4-44ea-9ace-518dceaa51b9,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,dean@college1.com,Dean,executive,,EXE-53FBDB8F,,[],active,2026-04-11 15:43:18.57049+00
+38feb699-11d6-4740-8525-d619cb0e1ca2,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,exam@college1.com,Exam Office,admin_staff,,EXM-6A2B624F,exam,[],active,2026-04-11 15:43:18.570499+00
+254d9d5e-0370-4f16-bdf8-1a68e96faacb,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,faculty1@college1.com,Faculty 1,faculty,,FAC-9C750F51,,"[""CSE101"", ""CSE201""]",active,2026-04-11 15:43:18.570501+00
+ac3228e6-34c6-4d89-b5ce-00ffdb008144,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,faculty2@college1.com,Faculty 2,faculty,,FAC-F5166A3C,,"[""CSE102"", ""CSE202""]",active,2026-04-11 15:43:18.570502+00
+8fd5e762-41ef-4aef-94fb-8e0fa046ca77,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,faculty3@college1.com,Faculty 3,faculty,,FAC-B29B943F,,"[""CSE103"", ""CSE203""]",active,2026-04-11 15:43:18.570504+00
+58f4bdfe-239c-46f4-9cc2-a02b548b9f0c,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,faculty4@college1.com,Faculty 4,faculty,,FAC-AE9E64A9,,"[""CSE104"", ""CSE204""]",active,2026-04-11 15:43:18.570506+00
+f2b9c4c0-124b-4ae5-9e97-dca845f62556,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,faculty5@college1.com,Faculty 5,faculty,,FAC-4D3B528C,,"[""CSE105"", ""CSE205""]",active,2026-04-11 15:43:18.570507+00
+4aa5e6d8-3276-4940-bc43-e6228ea5ece7,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,finance@college1.com,Finance Office,admin_staff,,FIN-5F2B5DD7,finance,[],active,2026-04-11 15:43:18.570496+00
+8cf4fbdf-2ce8-4432-8c96-3a30a55a3d70,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,hod.cse@college1.com,CSE Department Head,dept_head,cse,HOD-B74003F8,,[],active,2026-04-11 15:43:18.570492+00
+e8bb8327-4da0-45d4-9f5a-16160a81cac9,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,hr@college1.com,HR Office,admin_staff,,HR-BD3F5CBE,hr,[],active,2026-04-11 15:43:18.570497+00
+ab7bbf53-2128-4848-be97-b92b49b34f26,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student10@college1.com,Student 10,student,,STU-C1F90295,,[],active,2026-04-11 15:43:18.570523+00
+767cca96-2b28-41d7-8ce8-729acd126d8d,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student1@college1.com,Student 1,student,,STU-C1778357,,[],active,2026-04-11 15:43:18.570509+00
+4cf50b47-0c91-475c-8db0-933c27fc3918,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student2@college1.com,Student 2,student,,STU-69CE18C8,,[],active,2026-04-11 15:43:18.57051+00
+2b6563c9-e888-4b73-ae67-b57a68813e97,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student3@college1.com,Student 3,student,,STU-530B6D25,,[],active,2026-04-11 15:43:18.570512+00
+ca4b62c6-34b5-4559-9a4f-186e81e0f057,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student4@college1.com,Student 4,student,,STU-8FD638F6,,[],active,2026-04-11 15:43:18.570513+00
+1056e0be-9444-4de9-91a3-7872d71bd926,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student5@college1.com,Student 5,student,,STU-B771D39D,,[],active,2026-04-11 15:43:18.570515+00
+21c8895e-1caf-42f0-bfe2-a6d425745616,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student6@college1.com,Student 6,student,,STU-9D469B9E,,[],active,2026-04-11 15:43:18.570516+00
+1a6a983c-8e40-4c7c-ba1e-9ddcab8d4585,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student7@college1.com,Student 7,student,,STU-862C65A1,,[],active,2026-04-11 15:43:18.570518+00
+008b255f-8b18-461a-afea-14ddc545f998,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student8@college1.com,Student 8,student,,STU-B7DBF95E,,[],active,2026-04-11 15:43:18.57052+00
+1810e245-5ff8-4397-9939-4376b035360a,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,student9@college1.com,Student 9,student,,STU-503F17B0,,[],active,2026-04-11 15:43:18.570522+00
+3e2569c0-8dff-4386-b6aa-ac79d9817134,7dcc2d9d-6586-4370-a8ae-24e00a92e1c0,tenant.admin@college1.com,Tenant Admin,it_head,,ADM-77BD2690,,[],active,2026-04-11 15:43:18.570487+00
