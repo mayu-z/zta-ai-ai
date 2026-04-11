@@ -1,5 +1,7 @@
 # ZTA-AI: Technical Architecture & System Structure (SLM-Strict)
 
+**Plan Alignment:** This technical architecture document is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). If there is any mismatch, the production plan is the source of truth. See `docs/PLAN_ALIGNMENT.md`.
+
 ## System Overview
 
 ZTA-AI is a **distributed, deterministic, policy-driven system** designed around strict **Zero Trust principles**.
