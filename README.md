@@ -119,15 +119,17 @@ Services:
 
 Notes:
 
-- A one-time `db-init` container automatically seeds baseline tenants/users/claims when the database is empty.
-- If data already exists, seeding is skipped and runtime config backfill is applied.
-- To force a destructive reseed on startup:
+- Automatic demo seeding is disabled; startup creates schema only.
+- In development, onboard tenants via global system-admin APIs (`/auth/system-admin/mock-login`, `/system-admin/tenants`).
+- After onboarding, domain users (`*@tenant-domain`) are dynamically role-mapped on first login.
+- Connect your own test data sources from the UI after signing in.
 
-```bash
-ZTA_FORCE_RESEED=true ZTA_SEED_PROFILE=full docker compose up --build -d
-```
+Separate external mock university PostgreSQL dataset for connector testing:
 
-- To fully reset data and reseed from scratch:
+- Path: `external-mock-university-db/`
+- Start with: `cd external-mock-university-db && docker compose up -d`
+
+- To fully reset local data and start fresh:
 
 ```bash
 docker compose down -v
