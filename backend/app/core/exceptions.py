@@ -9,6 +9,9 @@ class ZTAError(Exception):
     code: str
     status_code: int = 400
 
+    def __str__(self) -> str:
+        return self.message
+
 
 class AuthenticationError(ZTAError):
     def __init__(
