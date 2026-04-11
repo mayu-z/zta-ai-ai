@@ -1,5 +1,7 @@
 # ZTA Frontend (Next.js)
 
+**Plan Alignment:** Frontend behavior and roadmap are governed by `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). This file remains implementation-focused; plan requirements take precedence. See `docs/PLAN_ALIGNMENT.md`.
+
 Next.js command console for the ZTA-AI backend.
 
 ## Features
