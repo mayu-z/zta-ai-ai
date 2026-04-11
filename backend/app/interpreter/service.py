@@ -9,7 +9,7 @@ from app.core.security import build_intent_hash
 from app.interpreter.aliaser import apply_schema_aliasing
 from app.interpreter.cache import intent_cache_service
 from app.interpreter.domain_gate import detect_domains, enforce_domain_gate, normalize_domain
-from app.interpreter.intent_extractor import extract_intent
+from app.interpreter.intent_extractor import IntentRule, extract_intent
 from app.interpreter.registry import (
     derive_domain_keywords_from_intent_rules,
     load_domain_keywords,
@@ -18,6 +18,34 @@ from app.interpreter.registry import (
 )
 from app.interpreter.sanitizer import sanitize_prompt
 from app.schemas.pipeline import InterpreterOutput, ScopeContext
+
+
+_SEMANTIC_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "as",
+    "at",
+    "by",
+    "for",
+    "from",
+    "get",
+    "give",
+    "how",
+    "i",
+    "in",
+    "is",
+    "it",
+    "me",
+    "my",
+    "of",
+    "on",
+    "show",
+    "the",
+    "to",
+    "what",
+    "with",
+}
 
 
 class InterpreterService:
@@ -87,6 +115,75 @@ class InterpreterService:
 
         return allowed_domains[0]
 
+    def _semantic_prompt_tokens(self, prompt: str) -> set[str]:
+        return {
+            token
+            for token in re.findall(r"[a-z0-9_]{3,}", prompt.lower())
+            if token not in _SEMANTIC_STOPWORDS
+        }
+
+    def _semantic_rule_terms(
+        self,
+        rule: IntentRule,
+        detection_keywords: dict[str, dict[str, list[str]]],
+    ) -> set[str]:
+        terms: set[str] = set()
+        by_type = detection_keywords.get(rule.name, {})
+        detection_terms = [keyword for values in by_type.values() for keyword in values]
+
+        candidates = [
+            rule.name,
+            rule.domain,
+            rule.entity_type,
+            *rule.keywords,
+            *rule.slot_keys,
+            *detection_terms,
+        ]
+        for candidate in candidates:
+            normalized = str(candidate).strip().lower().replace("-", "_")
+            if not normalized:
+                continue
+            terms.update(self._semantic_prompt_tokens(normalized.replace("_", " ")))
+
+        return terms
+
+    def _semantic_domain_for_undetermined(
+        self,
+        prompt: str,
+        scope: ScopeContext,
+        intent_rules: tuple[IntentRule, ...],
+        detection_keywords: dict[str, dict[str, list[str]]],
+    ) -> str | None:
+        prompt_tokens = self._semantic_prompt_tokens(prompt)
+        if not prompt_tokens:
+            return None
+
+        allowed_domains = set(self._ordered_allowed_domains(scope))
+        domain_scores: dict[str, tuple[int, int, int]] = {}
+
+        for rule in intent_rules:
+            if rule.persona_types and scope.persona_type not in rule.persona_types:
+                continue
+
+            domain = normalize_domain(rule.domain)
+            if scope.persona_type != "it_head" and allowed_domains and domain not in allowed_domains:
+                continue
+
+            rule_terms = self._semantic_rule_terms(rule, detection_keywords)
+            overlap = len(prompt_tokens.intersection(rule_terms))
+            if overlap == 0:
+                continue
+
+            score = (overlap, 1 if rule.is_default else 0, -rule.priority)
+            current = domain_scores.get(domain)
+            if current is None or score > current:
+                domain_scores[domain] = score
+
+        if not domain_scores:
+            return None
+
+        return max(domain_scores.items(), key=lambda item: item[1])[0]
+
     def _enforce_student_scope(self, prompt: str, scope: ScopeContext) -> None:
         if scope.persona_type != "student":
             return
@@ -136,6 +233,8 @@ class InterpreterService:
         sanitized_prompt: str,
         domain_keywords: dict[str, tuple[str, ...]],
         aggregation_modifiers: tuple[str, ...],
+        intent_rules: tuple[IntentRule, ...],
+        detection_keywords: dict[str, dict[str, list[str]]],
     ) -> list[str]:
         detected_domains = detect_domains(
             sanitized_prompt,
@@ -145,15 +244,26 @@ class InterpreterService:
         )
 
         if not detected_domains:
-            fallback_domain = self._fallback_domain_for_undetermined(
+            semantic_domain = self._semantic_domain_for_undetermined(
+                sanitized_prompt,
+                scope,
+                intent_rules,
+                detection_keywords,
+            )
+            fallback_domain = semantic_domain or self._fallback_domain_for_undetermined(
                 sanitized_prompt,
                 scope,
             )
             if fallback_domain:
                 detected_domains = [fallback_domain]
             else:
+                allowed_domains = self._ordered_allowed_domains(scope)
+                allowed_display = ", ".join(allowed_domains) or "none"
                 raise ValidationError(
-                    message="Unable to determine query domain from tenant configuration",
+                    message=(
+                        "Unable to match your prompt to a known domain keyword. "
+                        f"Try phrasing the request using one of your allowed domains: {allowed_display}."
+                    ),
                     code="DOMAIN_UNDETERMINED",
                 )
 
@@ -219,6 +329,8 @@ class InterpreterService:
             sanitized_prompt,
             domain_keywords,
             aggregation_modifiers,
+            intent_rules,
+            detection_keywords,
         )
 
         return self._build_output(
@@ -255,6 +367,8 @@ class InterpreterService:
             sanitized_prompt,
             domain_keywords,
             aggregation_modifiers,
+            intent_rules,
+            detection_keywords,
         )
 
         if domain not in detected_domains:
