@@ -1,5 +1,7 @@
 # ZTA-AI — Data Integration & Connector Architecture (SLM-Strict)
 
+**Plan Alignment:** This integration document is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). Connector phase gating and certification requirements are governed by the plan. See `docs/PLAN_ALIGNMENT.md`.
+
 **// universal connector layer — on-prem · cloud · saas · files**
 
 ---
