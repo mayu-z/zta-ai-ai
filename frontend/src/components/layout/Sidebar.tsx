@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, LogOut, MessageSquare, Settings, Shield } from "lucide-react";
+import { Database, GitBranch, LogOut, MessageSquare, Shield } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -11,17 +11,22 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
 import { PERSONA_BADGE_COLOR } from "@/types";
 
-const navItems = [
+const tenantAdminNavItems = [
+  { href: "/tenant-admin", label: "Dashboard", icon: GitBranch },
   { href: "/chat", label: "Chat", icon: MessageSquare },
-  { href: "/audit", label: "Audit Log", icon: Shield },
   { href: "/sources", label: "Data Sources", icon: Database },
+  { href: "/audit", label: "Audit Log", icon: Shield },
 ];
+
+const endUserNavItems = [{ href: "/chat", label: "Chat", icon: MessageSquare }];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const isTenantAdmin = user?.persona === "it_head";
+  const navItems = isTenantAdmin ? tenantAdminNavItems : endUserNavItems;
 
   const initials = user?.name
     ? user.name
@@ -65,11 +70,6 @@ export function Sidebar() {
         </nav>
 
         <div className="mt-auto space-y-3">
-          <button className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm text-text-muted transition-colors hover:bg-primary-tint hover:text-text-primary">
-            <Settings className="h-4 w-4" />
-            <span>Settings</span>
-          </button>
-
           <div className="rounded-xl border border-border bg-bg p-3">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">

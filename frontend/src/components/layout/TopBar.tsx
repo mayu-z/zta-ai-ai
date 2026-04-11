@@ -79,7 +79,7 @@ export function TopBar({ title, connected }: { title: string; connected: boolean
               }}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Logouttt
+              Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
