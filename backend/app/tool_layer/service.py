@@ -3,6 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.connectors.source_types import is_local_store_source_type
 from app.connectors.registry import connector_registry
 from app.core.exceptions import ValidationError
 from app.db.models import AuditLog, DataSource
@@ -12,7 +13,7 @@ from app.schemas.pipeline import CompiledQueryPlan
 
 class ToolLayerService:
     def execute(self, db: Session, plan: CompiledQueryPlan) -> dict[str, object]:
-        # Handle admin queries directly without claims
+        # Handle admin queries directly without connector execution.
         if plan.filters.get("entity_type") == "admin_data_sources":
             return self._get_data_sources(db, plan)
         if plan.filters.get("entity_type") == "admin_audit_log":
@@ -41,9 +42,9 @@ class ToolLayerService:
                     message="Compiled plan source type does not match bound data source",
                     code="PLAN_SOURCE_MISMATCH",
                 )
-        elif plan.source_type not in {"ipeds_claims", "mock_claims"}:
+        elif not is_local_store_source_type(plan.source_type):
             raise ValidationError(
-                message="Non-claim source routing requires a bound data_source_id",
+                message="Non-local source routing requires a bound data_source_id",
                 code="PLAN_SOURCE_BINDING_INCOMPLETE",
             )
 
