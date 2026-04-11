@@ -1,5 +1,7 @@
 # ZTA-AI — BFSI Vertical Strategy (SLM-Strict)
 
+**Plan Alignment:** This vertical strategy is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). Product-wide scope and phase gates are governed by the plan file. See `docs/PLAN_ALIGNMENT.md`.
+
 **Beachhead Market: Banking, Financial Services & Insurance**
 
 **// full vertical strategy — market · use cases · compliance · sales · roadmap**
