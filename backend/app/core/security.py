@@ -14,6 +14,7 @@ except Exception:  # noqa: BLE001
 
 from app.core.config import get_settings
 from app.core.exceptions import AuthenticationError
+from app.core.secret_manager import secret_manager
 
 
 def utc_now() -> datetime:
@@ -87,6 +88,10 @@ def create_access_token(
     payload: dict[str, Any], expires_minutes: int | None = None
 ) -> str:
     settings = get_settings()
+    jwt_secret = secret_manager.get_secret(
+        "JWT_SECRET_KEY",
+        fallback=settings.jwt_secret_key,
+    )
     token_payload = dict(payload)
     exp_minutes = (
         expires_minutes if expires_minutes is not None else settings.jwt_exp_minutes
@@ -99,19 +104,25 @@ def create_access_token(
 
     if jwt is not None:
         return jwt.encode(
-            token_payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+            token_payload,
+            jwt_secret,
+            algorithm=settings.jwt_algorithm,
         )
-    return _encode_fallback(token_payload, settings.jwt_secret_key)
+    return _encode_fallback(token_payload, jwt_secret)
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
+    jwt_secret = secret_manager.get_secret(
+        "JWT_SECRET_KEY",
+        fallback=settings.jwt_secret_key,
+    )
 
     if jwt is not None:
         try:
             decoded = jwt.decode(
                 token,
-                settings.jwt_secret_key,
+                jwt_secret,
                 algorithms=[settings.jwt_algorithm],
                 options={"require": ["exp", "iat"]},
             )
@@ -122,7 +133,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
 
         return decoded
 
-    return _decode_fallback(token, settings.jwt_secret_key)
+    return _decode_fallback(token, jwt_secret)
 
 
 def normalize_text(value: str) -> str:
