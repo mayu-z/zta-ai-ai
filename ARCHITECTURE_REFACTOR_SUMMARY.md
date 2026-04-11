@@ -1,5 +1,7 @@
 # Architecture Refactor Summary: Intent Detection Keywords to Database
 
+**Plan Alignment:** This summary documents a specific refactor slice. Product-wide production requirements and phase acceptance criteria are governed by `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). See `docs/PLAN_ALIGNMENT.md`.
+
 ## Project Overview
 
 This refactor moves intent detection keywords from hardcoded Python tuples to database-managed configuration, enabling:
