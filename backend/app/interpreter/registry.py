@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -7,6 +9,40 @@ from app.core.exceptions import ValidationError
 from app.db.models import DomainKeyword, IntentDefinition, IntentDetectionKeyword
 from app.interpreter.domain_gate import AGGREGATION_MODIFIERS
 from app.interpreter.intent_extractor import IntentRule
+
+
+_DERIVED_DOMAIN_KEYWORD_STOPWORDS = {
+    "a",
+    "all",
+    "an",
+    "and",
+    "by",
+    "count",
+    "dashboard",
+    "data",
+    "detail",
+    "details",
+    "for",
+    "get",
+    "in",
+    "info",
+    "list",
+    "metric",
+    "metrics",
+    "of",
+    "overview",
+    "record",
+    "records",
+    "report",
+    "reports",
+    "show",
+    "status",
+    "summary",
+    "the",
+    "to",
+    "total",
+    "view",
+}
 
 
 def _normalize_keywords(values: list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
@@ -19,6 +55,48 @@ def _normalize_keywords(values: list[str] | tuple[str, ...] | None) -> tuple[str
         if keyword and keyword not in normalized:
             normalized.append(keyword)
     return tuple(normalized)
+
+
+def _tokenize_derived_keywords(value: str) -> tuple[str, ...]:
+    tokens = [
+        token
+        for token in re.split(r"[^a-z0-9]+", value.lower())
+        if len(token) >= 3 and token not in _DERIVED_DOMAIN_KEYWORD_STOPWORDS
+    ]
+    return tuple(tokens)
+
+
+def derive_domain_keywords_from_intent_rules(
+    intent_rules: tuple[IntentRule, ...],
+) -> dict[str, tuple[str, ...]]:
+    """Build fallback domain keywords from intent rules for domain onboarding bootstraps."""
+    derived: dict[str, set[str]] = {}
+
+    for rule in intent_rules:
+        domain = rule.domain.strip().lower()
+        if not domain:
+            continue
+
+        domain_keywords = derived.setdefault(domain, set())
+        domain_keywords.add(domain)
+
+        candidates = [rule.name, rule.entity_type, *rule.keywords, *rule.slot_keys]
+        for candidate in candidates:
+            normalized = str(candidate).strip().lower()
+            if not normalized:
+                continue
+
+            if " " in normalized and len(normalized) >= 4:
+                domain_keywords.add(normalized)
+
+            for token in _tokenize_derived_keywords(normalized):
+                domain_keywords.add(token)
+
+    return {
+        domain: tuple(sorted(keywords))
+        for domain, keywords in derived.items()
+        if keywords
+    }
 
 
 def load_domain_keywords(
