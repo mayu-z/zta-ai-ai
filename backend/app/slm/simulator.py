@@ -5,7 +5,11 @@ import re
 from typing import Any
 
 from app.core.config import get_settings
+from app.core.egress import enforce_egress_url_allowed
 from app.core.exceptions import ValidationError
+from app.core.mtls import build_mtls_httpx_client
+from app.core.secret_manager import secret_manager
+from app.core.zero_learning import build_zero_learning_headers, interaction_fingerprint
 from app.schemas.pipeline import InterpretedIntent, ScopeContext
 from app.slm.key_manager import get_key_manager, AdaptiveKeyManager
 
@@ -16,7 +20,7 @@ UNSAFE_HINTS = ("select ", " from ", "schema", "table", "system prompt")
 MAX_KEY_ROTATION_RETRIES = 5
 
 
-'''''''class SLMSimulator:
+class SLMSimulator:
     """
     Strict untrusted rendering layer (sandboxed, stateless).
 
@@ -35,26 +39,67 @@ MAX_KEY_ROTATION_RETRIES = 5
     def __init__(self) -> None:
         self.settings = get_settings()
         self._client: Any | None = None
+        self._transport_client: Any | None = None
         self._key_manager: AdaptiveKeyManager | None = None
+        self._single_api_key: str | None = None
+        self._slm_key_signature: tuple[tuple[str, ...], str | None, int] | None = None
         self._current_client_key: str | None = None
         self._current_key_index: int | None = None
         self._validate_slm_config()
 
+    def _get_transport_client(self) -> Any:
+        if self._transport_client is None:
+            if self.settings.service_mtls_enabled:
+                self._transport_client = build_mtls_httpx_client(
+                    client_cert_path=self.settings.service_mtls_client_cert_path,
+                    client_key_path=self.settings.service_mtls_client_key_path,
+                    ca_bundle_path=self.settings.service_mtls_ca_bundle_path,
+                )
+
+        return self._transport_client
+
     def _validate_slm_config(self) -> None:
         """Validate SLM is properly configured at startup."""
-        # Parse multiple API keys if configured
+        self._refresh_slm_credentials()
+
+    def _single_api_key_from_secret_store(self) -> str | None:
+        key = secret_manager.get_secret(
+            "SLM_API_KEY",
+            fallback=self.settings.slm_api_key,
+        ).strip()
+        return key or None
+
+    def _refresh_slm_credentials(self) -> None:
         api_keys = self._parse_api_keys()
+        single_api_key = self._single_api_key_from_secret_store()
+        signature = (
+            tuple(api_keys),
+            single_api_key,
+            self.settings.slm_requests_per_minute,
+        )
+        if signature == self._slm_key_signature:
+            return
+
+        self._slm_key_signature = signature
+        self._client = None
+        self._current_client_key = None
+        self._current_key_index = None
 
         if api_keys:
             self._key_manager = get_key_manager(
                 api_keys,
                 requests_per_minute=self.settings.slm_requests_per_minute,
             )
+            self._single_api_key = None
             logger.info(
                 f"SLM configured with {len(api_keys)} API keys "
                 f"(adaptive rate-aware, {self.settings.slm_requests_per_minute} req/min/key)"
             )
-        elif self.settings.slm_api_key:
+            return
+
+        self._key_manager = None
+        self._single_api_key = single_api_key
+        if self._single_api_key:
             logger.info("SLM configured with single API key")
         else:
             logger.warning(
@@ -63,11 +108,10 @@ MAX_KEY_ROTATION_RETRIES = 5
 
     def _parse_api_keys(self) -> list[str]:
         """Parse comma-separated API keys from SLM_API_KEYS setting."""
-        if not self.settings.slm_api_keys:
-            return []
-
-        keys = [k.strip() for k in self.settings.slm_api_keys.split(",") if k.strip()]
-        return keys
+        return secret_manager.get_csv_secret(
+            "SLM_API_KEYS",
+            fallback_csv=self.settings.slm_api_keys,
+        )
 
     def _get_active_api_key(self) -> tuple[str | None, int | None]:
         """
@@ -76,6 +120,8 @@ MAX_KEY_ROTATION_RETRIES = 5
         Returns:
             Tuple of (api_key, key_index) or (None, None) if unavailable
         """
+        self._refresh_slm_credentials()
+
         if self._key_manager:
             try:
                 key, index = self._key_manager.get_best_key()
@@ -83,7 +129,7 @@ MAX_KEY_ROTATION_RETRIES = 5
             except RuntimeError as e:
                 logger.error(f"All API keys exhausted: {e}")
                 return None, None
-        return self.settings.slm_api_key or None, None
+        return self._single_api_key, None
 
     @staticmethod
     def _trim_after_last_slot_sentence(content: str) -> str:
@@ -389,6 +435,8 @@ MAX_KEY_ROTATION_RETRIES = 5
                 "Generate the response template now:"
             )
 
+            zero_learning_headers = build_zero_learning_headers(self.settings)
+
             completion = client.chat.completions.create(
                 model=self.settings.slm_model,
                 messages=[
@@ -402,6 +450,7 @@ MAX_KEY_ROTATION_RETRIES = 5
                 top_p=self.settings.slm_top_p,
                 max_tokens=self.settings.slm_max_tokens,
                 stream=False,
+                extra_headers=zero_learning_headers,
             )
 
             content = (
@@ -460,6 +509,17 @@ MAX_KEY_ROTATION_RETRIES = 5
                     code="SLM_UNSAFE_TEMPLATE",
                 )
 
+            if getattr(self.settings, "slm_zero_learning_audit_log_enabled", True):
+                logger.info(
+                    "SLM zero-learning interaction fingerprint intent=%s persona=%s %s",
+                    intent.name,
+                    scope.persona_type,
+                    interaction_fingerprint(
+                        prompt=prompt,
+                        rendered_template=rendered,
+                    ),
+                )
+
             return rendered
         except ValidationError:
             raise
@@ -483,9 +543,21 @@ MAX_KEY_ROTATION_RETRIES = 5
             except ImportError:
                 return None
 
+            try:
+                enforce_egress_url_allowed(
+                    target_url=self.settings.slm_base_url,
+                    raw_allowlist=self.settings.egress_allowed_hosts,
+                )
+            except RuntimeError as exc:
+                raise ValidationError(
+                    message=str(exc),
+                    code="SLM_EGRESS_BLOCKED",
+                ) from exc
+
             self._client = openai.OpenAI(
                 base_url=self.settings.slm_base_url,
                 api_key=current_key,
+                http_client=self._get_transport_client(),
             )
             self._current_client_key = current_key
             self._current_key_index = key_index
