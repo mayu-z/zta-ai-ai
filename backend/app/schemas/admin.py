@@ -1,4 +1,7 @@
-﻿from pydantic import BaseModel, Field
+﻿from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class UserUpdateRequest(BaseModel):
@@ -12,6 +15,37 @@ class DataSourceCreateRequest(BaseModel):
     source_type: str
     config: dict = Field(default_factory=dict)
     department_scope: list[str] = Field(default_factory=list)
+
+
+class DataSourceUpdateRequest(BaseModel):
+    name: str | None = None
+    config: dict[str, object] | None = None
+    department_scope: list[str] | None = None
+    status: Literal["connected", "disconnected", "paused"] | None = None
+
+
+class FieldMaskingPolicyUpdateRequest(BaseModel):
+    schema_field_id: str
+    visibility: Literal["visible", "masked", "hidden"] | None = None
+    pii_flag: bool | None = None
+    masked_for_personas: list[str] | None = None
+    display_name: str | None = None
+    sync_role_policies: bool = True
+
+
+class RowLevelPolicyUpdateRequest(BaseModel):
+    row_scope_mode: Literal[
+        "owner_id",
+        "course_ids",
+        "department_id",
+        "admin_function",
+    ] | None = None
+    sensitive_domains: list[str] | None = None
+    require_business_hours_for_sensitive: bool | None = None
+    business_hours_start: int | None = Field(default=None, ge=0, le=23)
+    business_hours_end: int | None = Field(default=None, ge=0, le=23)
+    require_trusted_device_for_sensitive: bool | None = None
+    require_mfa_for_sensitive: bool | None = None
 
 
 class KillSwitchRequest(BaseModel):
@@ -87,3 +121,61 @@ class IntentDetectionKeywordUpsertRequest(BaseModel):
     keyword: str
     priority: int = 100
     is_active: bool = True
+
+
+class ActionExecuteRequest(BaseModel):
+    action_id: str
+    input_payload: dict[str, object] = Field(default_factory=dict)
+    dry_run: bool = False
+
+
+class ActionTemplateOverrideUpsertRequest(BaseModel):
+    is_enabled: bool | None = None
+    trigger: str | None = None
+    approval_required: bool | None = None
+    approver_role: str | None = None
+    sla_hours: int | None = Field(default=None, ge=1, le=168)
+    execution_steps: list[str] | None = None
+
+
+class ActionApprovalRequest(BaseModel):
+    comment: str | None = None
+
+
+class ActionRollbackRequest(BaseModel):
+    reason: str = ""
+
+
+class ComplianceForensicExportRequest(BaseModel):
+    from_at: datetime
+    to_at: datetime
+    include_action_ids: list[str] = Field(default_factory=list)
+    include_blocked_queries_only: bool = False
+    max_items: int = Field(default=250, ge=10, le=1000)
+
+
+class ComplianceRetentionRunRequest(BaseModel):
+    retention_days: int = Field(default=365, ge=1, le=3650)
+    dry_run: bool = True
+    max_items: int = Field(default=500, ge=1, le=5000)
+    as_of: datetime | None = None
+
+
+class ComplianceAttestationCreateRequest(BaseModel):
+    framework: str
+    from_at: datetime | None = None
+    to_at: datetime | None = None
+    max_items: int = Field(default=500, ge=10, le=5000)
+    statement: str | None = None
+
+
+class ComplianceCaseCreateRequest(BaseModel):
+    case_type: str
+    subject_identifier: str
+    delivery_method: str | None = None
+    legal_basis: str | None = None
+
+
+class ComplianceCaseLegalHoldRequest(BaseModel):
+    active: bool
+    reason: str = ""
