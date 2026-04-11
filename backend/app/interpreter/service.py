@@ -8,14 +8,58 @@ from app.core.exceptions import AuthorizationError, ValidationError
 from app.core.security import build_intent_hash
 from app.interpreter.aliaser import apply_schema_aliasing
 from app.interpreter.cache import intent_cache_service
-from app.interpreter.domain_gate import detect_domains, enforce_domain_gate
+from app.interpreter.domain_gate import detect_domains, enforce_domain_gate, normalize_domain
 from app.interpreter.intent_extractor import extract_intent
-from app.interpreter.registry import load_domain_keywords, load_intent_rules, load_intent_detection_keywords
+from app.interpreter.registry import (
+    derive_domain_keywords_from_intent_rules,
+    load_domain_keywords,
+    load_intent_detection_keywords,
+    load_intent_rules,
+)
 from app.interpreter.sanitizer import sanitize_prompt
 from app.schemas.pipeline import InterpreterOutput, ScopeContext
 
 
 class InterpreterService:
+    def _load_interpreter_configuration(
+        self,
+        db: Session,
+        tenant_id: str,
+    ) -> tuple[
+        dict[str, tuple[str, ...]],
+        tuple[str, ...],
+        tuple,
+        dict[str, dict[str, list[str]]],
+    ]:
+        intent_rules = load_intent_rules(db, tenant_id)
+        detection_keywords = load_intent_detection_keywords(db, tenant_id)
+
+        try:
+            domain_keywords, aggregation_modifiers = load_domain_keywords(db, tenant_id)
+        except ValidationError as exc:
+            if exc.code != "DOMAIN_KEYWORDS_NOT_CONFIGURED":
+                raise
+
+            domain_keywords = derive_domain_keywords_from_intent_rules(intent_rules)
+            if not domain_keywords:
+                raise
+            aggregation_modifiers = tuple()
+
+        return (
+            domain_keywords,
+            aggregation_modifiers,
+            intent_rules,
+            detection_keywords,
+        )
+
+    def _ordered_allowed_domains(self, scope: ScopeContext) -> list[str]:
+        ordered: list[str] = []
+        for raw_domain in scope.allowed_domains:
+            normalized = normalize_domain(raw_domain)
+            if normalized and normalized not in ordered:
+                ordered.append(normalized)
+        return ordered
+
     def _fallback_domain_for_undetermined(
         self,
         prompt: str,
@@ -33,19 +77,15 @@ class InterpreterService:
         if not any(marker in lower_prompt for marker in summary_markers):
             return None
 
-        if scope.persona_type == "student":
-            return "academic"
-        if scope.persona_type == "faculty":
-            return "academic"
-        if scope.persona_type == "dept_head":
-            return "department"
-        if scope.persona_type == "admin_staff":
-            return scope.admin_function or "admissions"
-        if scope.persona_type == "executive":
-            return "campus"
-        if scope.persona_type == "it_head":
-            return "admin"
-        return None
+        allowed_domains = self._ordered_allowed_domains(scope)
+        if not allowed_domains:
+            return None
+
+        for preferred in allowed_domains:
+            if preferred != "notices":
+                return preferred
+
+        return allowed_domains[0]
 
     def _enforce_student_scope(self, prompt: str, scope: ScopeContext) -> None:
         if scope.persona_type != "student":
@@ -92,13 +132,11 @@ class InterpreterService:
 
     def _resolve_detected_domains(
         self,
-        db: Session,
         scope: ScopeContext,
         sanitized_prompt: str,
+        domain_keywords: dict[str, tuple[str, ...]],
+        aggregation_modifiers: tuple[str, ...],
     ) -> list[str]:
-        domain_keywords, aggregation_modifiers = load_domain_keywords(
-            db, scope.tenant_id
-        )
         detected_domains = detect_domains(
             sanitized_prompt,
             domain_keywords=domain_keywords,
@@ -131,13 +169,12 @@ class InterpreterService:
         prompt: str,
         sanitized_prompt: str,
         detected_domains: list[str],
+        intent_rules,
+        detection_keywords: dict[str, dict[str, list[str]]],
     ) -> InterpreterOutput:
         aliased_prompt, real_identifiers = apply_schema_aliasing(
             db, scope.tenant_id, sanitized_prompt
         )
-
-        intent_rules = load_intent_rules(db, scope.tenant_id)
-        detection_keywords = load_intent_detection_keywords(db, scope.tenant_id)
         
         intent = extract_intent(
             raw_prompt=prompt,
@@ -170,10 +207,18 @@ class InterpreterService:
         self._enforce_student_scope(sanitized_prompt, scope)
         self._enforce_executive_aggregate_only(sanitized_prompt, scope)
 
+        (
+            domain_keywords,
+            aggregation_modifiers,
+            intent_rules,
+            detection_keywords,
+        ) = self._load_interpreter_configuration(db, scope.tenant_id)
+
         detected_domains = self._resolve_detected_domains(
-            db,
             scope,
             sanitized_prompt,
+            domain_keywords,
+            aggregation_modifiers,
         )
 
         return self._build_output(
@@ -182,6 +227,8 @@ class InterpreterService:
             prompt,
             sanitized_prompt,
             detected_domains,
+            intent_rules,
+            detection_keywords,
         )
 
     def run_for_domain(
@@ -196,10 +243,18 @@ class InterpreterService:
         self._enforce_student_scope(sanitized_prompt, scope)
         self._enforce_executive_aggregate_only(sanitized_prompt, scope)
 
+        (
+            domain_keywords,
+            aggregation_modifiers,
+            intent_rules,
+            detection_keywords,
+        ) = self._load_interpreter_configuration(db, scope.tenant_id)
+
         detected_domains = self._resolve_detected_domains(
-            db,
             scope,
             sanitized_prompt,
+            domain_keywords,
+            aggregation_modifiers,
         )
 
         if domain not in detected_domains:
@@ -214,6 +269,8 @@ class InterpreterService:
             prompt,
             sanitized_prompt,
             [domain],
+            intent_rules,
+            detection_keywords,
         )
 
 
