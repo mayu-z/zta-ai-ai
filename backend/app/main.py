@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import admin, auth, chat, pipeline_monitor
+from app.api.routes import admin, auth, chat, pipeline_monitor, system_admin
 from app.core.config import get_settings
 from app.core.egress import enforce_egress_url_allowed
 from app.core.exceptions import ZTAError
@@ -180,4 +180,5 @@ def health() -> dict[str, str]:
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
+app.include_router(system_admin.router)
 app.include_router(pipeline_monitor.router)
