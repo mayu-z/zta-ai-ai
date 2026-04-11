@@ -107,7 +107,7 @@ async function waitForCondition(check, timeoutMs, intervalMs = 250) {
     await page.evaluate(() => window.localStorage.clear());
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    await page.getByRole('button', { name: /ithead@ipeds\.local/i }).click();
+    await page.getByRole('button', { name: /IT Head/i }).click();
     await page.waitForSelector('text=/::\\s*it_head/i', { timeout: 30000 });
 
     await sleep(2500);
