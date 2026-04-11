@@ -11,10 +11,10 @@ os.environ["CELERY_BROKER_URL"] = "redis://localhost:6399/1"
 os.environ["CELERY_RESULT_BACKEND"] = "redis://localhost:6399/2"
 os.environ["AUTH_PROVIDER"] = "mock_google"
 os.environ["USE_MOCK_GOOGLE_OAUTH"] = "true"
+os.environ["DEV_AUTO_CREATE_TENANT_ON_LOGIN"] = "true"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-that-is-at-least-thirty-two-chars"
 os.environ["SLM_PROVIDER"] = "nvidia"
 os.environ["SLM_API_KEY"] = "test-key"
-os.environ["ZTA_SEED_PROFILE"] = "test"
 
 from app.core.config import get_settings  # noqa: E402
 
@@ -23,7 +23,16 @@ get_settings.cache_clear()
 from app.core.redis_client import redis_client  # noqa: E402
 from app.db.models import Base  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
-from scripts.seed_data import seed  # noqa: E402
+from scripts.ipeds_import import seed_ipeds_claims  # noqa: E402
+
+
+def _bootstrap_test_dataset() -> None:
+    db = SessionLocal()
+    try:
+        seed_ipeds_claims(db, profile="test")
+        db.commit()
+    finally:
+        db.close()
 
 
 def _create_mock_slm_response(slot_count: int = 2) -> MagicMock:
@@ -40,7 +49,7 @@ def _create_mock_slm_response(slot_count: int = 2) -> MagicMock:
 def _reset_state():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    seed()
+    _bootstrap_test_dataset()
     redis_client._redis = None
     yield
 
