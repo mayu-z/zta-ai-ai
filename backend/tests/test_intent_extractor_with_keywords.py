@@ -264,3 +264,81 @@ def test_extract_intent_preserves_filters() -> None:
     # Should extract Q1 as quarter filter
     assert "quarter" in interpreted.filters
     assert interpreted.filters["quarter"] == "Q1"
+
+
+def test_extract_intent_prefers_default_overview_for_summary_prompt() -> None:
+    """Summary wording should prefer default overview rule over list rule."""
+    rules = (
+        IntentRule(
+            name="academic_overview",
+            domain="academic",
+            entity_type="records",
+            slot_keys=("record_count", "status_summary"),
+            keywords=("academic", "summary", "overview", "status"),
+            persona_types=("student",),
+            is_default=True,
+            priority=100,
+        ),
+        IntentRule(
+            name="academic_list",
+            domain="academic",
+            entity_type="records",
+            slot_keys=("record_name", "record_value"),
+            keywords=("academic", "list", "show", "details"),
+            persona_types=("student",),
+            is_default=False,
+            priority=140,
+        ),
+    )
+
+    prompt = "show my academic summary for this semester"
+    interpreted = extract_intent(
+        raw_prompt=prompt,
+        sanitized_prompt=prompt,
+        aliased_prompt=prompt,
+        detected_domains=["academic"],
+        persona_type="student",
+        intent_rules=rules,
+        detection_keywords={},
+    )
+
+    assert interpreted.name == "academic_overview"
+
+
+def test_extract_intent_prefers_count_slots_for_how_many_prompt() -> None:
+    """Count-oriented wording should prefer rules with count slots."""
+    rules = (
+        IntentRule(
+            name="academic_overview",
+            domain="academic",
+            entity_type="records",
+            slot_keys=("record_count", "status_summary"),
+            keywords=("course", "how many", "summary"),
+            persona_types=("student",),
+            is_default=True,
+            priority=100,
+        ),
+        IntentRule(
+            name="academic_list",
+            domain="academic",
+            entity_type="records",
+            slot_keys=("record_name", "record_value"),
+            keywords=("course", "how many", "show"),
+            persona_types=("student",),
+            is_default=False,
+            priority=140,
+        ),
+    )
+
+    prompt = "show how many courses i am currently enrolled in"
+    interpreted = extract_intent(
+        raw_prompt=prompt,
+        sanitized_prompt=prompt,
+        aliased_prompt=prompt,
+        detected_domains=["academic"],
+        persona_type="student",
+        intent_rules=rules,
+        detection_keywords={},
+    )
+
+    assert interpreted.name == "academic_overview"
