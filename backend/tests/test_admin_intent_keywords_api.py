@@ -4,7 +4,18 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import IntentDetectionKeyword, Tenant, User, PersonaType, UserStatus
+from app.db.models import (
+    DataSourceType,
+    DomainKeyword,
+    DomainSourceBinding,
+    IntentDefinition,
+    IntentDetectionKeyword,
+    PersonaType,
+    RolePolicy,
+    Tenant,
+    User,
+    UserStatus,
+)
 from app.db.session import SessionLocal
 from app.main import app
 from app.api.deps import get_db, get_current_scope
@@ -289,3 +300,89 @@ def test_intent_detection_keywords_bulk_create(client: TestClient) -> None:
     # Verify all created
     response = client.get("/admin/intent-detection-keywords")
     assert len(response.json()) == 5
+
+
+def test_interpreter_onboarding_validation_reports_errors(client: TestClient, db: Session) -> None:
+    db.add(
+        DomainKeyword(
+            tenant_id=TENANT_ID,
+            domain="finance",
+            keywords=["invoice", "payable"],
+            is_active=True,
+        )
+    )
+    db.add(
+        IntentDefinition(
+            tenant_id=TENANT_ID,
+            intent_name="finance_invoice_status",
+            domain="finance",
+            entity_type="invoice_summary",
+            slot_keys=[],
+            keywords=["invoice"],
+            persona_types=["admin_staff"],
+            is_default=False,
+            is_active=True,
+        )
+    )
+    db.commit()
+
+    response = client.get("/admin/interpreter/onboarding-validation?domain=finance")
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["ready"] is False
+    issue_codes = {item["code"] for item in payload["issues"]}
+    assert "INTENT_SLOT_KEYS_MISSING" in issue_codes
+    assert "DOMAIN_DEFAULT_INTENT_MISSING" in issue_codes
+
+
+def test_interpreter_onboarding_validation_passes_with_complete_config(
+    client: TestClient,
+    db: Session,
+) -> None:
+    db.add(
+        DomainKeyword(
+            tenant_id=TENANT_ID,
+            domain="finance",
+            keywords=["invoice", "payable"],
+            is_active=True,
+        )
+    )
+    db.add(
+        IntentDefinition(
+            tenant_id=TENANT_ID,
+            intent_name="finance_invoice_status",
+            domain="finance",
+            entity_type="invoice_summary",
+            slot_keys=["invoice_count"],
+            keywords=["invoice"],
+            persona_types=["admin_staff"],
+            is_default=True,
+            is_active=True,
+        )
+    )
+    db.add(
+        DomainSourceBinding(
+            tenant_id=TENANT_ID,
+            domain="finance",
+            source_type=DataSourceType.mock_claims,
+            is_active=True,
+        )
+    )
+    db.add(
+        RolePolicy(
+            tenant_id=TENANT_ID,
+            role_key="finance_ops",
+            display_name="Finance Operations",
+            allowed_domains=["finance"],
+            is_active=True,
+        )
+    )
+    db.commit()
+
+    response = client.get("/admin/interpreter/onboarding-validation?domain=finance")
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["ready"] is True
+    assert payload["summary"]["errors"] == 0
