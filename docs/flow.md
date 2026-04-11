@@ -1,3 +1,5 @@
+[Plan Alignment: This flow is aligned to ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md (v3.0, April 11, 2026). If a step here conflicts with the plan, the plan is authoritative. See docs/PLAN_ALIGNMENT.md.]
+
 [ WEB-APP & MOBILE APPLICATION ]
         ↓
 [ API LAYER (GATEWAY) ]
