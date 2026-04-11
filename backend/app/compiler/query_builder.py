@@ -3,6 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.connectors.source_types import LOCAL_STORE_SOURCE_TYPES
 from app.core.config import get_settings as _get_settings
 from app.core.exceptions import ValidationError
 from app.db.models import DataSource, DataSourceStatus, DomainSourceBinding
@@ -82,6 +83,7 @@ class QueryBuilder:
             source_binding_id=source_binding_id,
             domain=intent.domain,
             entity_type=intent.entity_type,
+            select_keys=intent.slot_keys,
             select_claim_keys=intent.slot_keys,
             filters=filters,
             slot_map=slot_map,
@@ -134,11 +136,14 @@ class QueryBuilder:
         return source_type, data_source_id, binding.id
 
     def _fallback_source_type(self, tenant_id: str) -> str:
-        return (
-            "ipeds_claims"
-            if tenant_id == _get_settings().ipeds_tenant_id
-            else "mock_claims"
-        )
+        _ = tenant_id  # kept for signature stability
+        configured = _get_settings().default_local_source_type.strip().lower()
+        if configured not in LOCAL_STORE_SOURCE_TYPES:
+            raise ValidationError(
+                message="Configured default_local_source_type is not supported",
+                code="DEFAULT_SOURCE_TYPE_INVALID",
+            )
+        return configured
 
 
 query_builder = QueryBuilder()
