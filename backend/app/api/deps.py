@@ -4,9 +4,11 @@ from datetime import UTC, datetime
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.exceptions import AuthenticationError, AuthorizationError
 from app.core.redis_client import redis_client
 from app.core.security import decode_access_token
@@ -16,6 +18,21 @@ from app.identity.service import identity_service
 from app.schemas.pipeline import ScopeContext
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+
+class SystemAdminContext(BaseModel):
+    email: str
+    session_id: str
+    jti: str | None = None
+
+
+def _allowed_system_admin_emails() -> set[str]:
+    raw = get_settings().system_admin_allowed_emails
+    return {
+        item.strip().lower()
+        for item in str(raw).split(",")
+        if item.strip()
+    }
 
 
 def _ensure_not_killed(scope: ScopeContext) -> None:
@@ -96,3 +113,41 @@ def get_current_scope(
     if credentials is None:
         raise AuthenticationError(message="Missing bearer token", code="TOKEN_REQUIRED")
     return get_scope_from_token(db=db, token=credentials.credentials)
+
+
+def get_current_system_admin(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> SystemAdminContext:
+    if credentials is None:
+        raise AuthenticationError(message="Missing bearer token", code="TOKEN_REQUIRED")
+
+    payload = decode_access_token(credentials.credentials)
+    if not bool(payload.get("is_system_admin")):
+        raise AuthorizationError(
+            message="System admin privileges required",
+            code="SYSTEM_ADMIN_ONLY",
+        )
+
+    email = str(payload.get("email") or payload.get("system_admin_email") or "").strip().lower()
+    if not email:
+        raise AuthenticationError(
+            message="System admin token is missing email claim",
+            code="TOKEN_INVALID_CLAIMS",
+        )
+
+    allowed_emails = _allowed_system_admin_emails()
+    if allowed_emails and email not in allowed_emails:
+        raise AuthorizationError(
+            message="System admin account is not allow-listed",
+            code="SYSTEM_ADMIN_NOT_ALLOWED",
+        )
+
+    jti = str(payload.get("jti") or "").strip() or None
+    if jti and redis_client.client.exists(f"deny:{jti}"):
+        raise AuthenticationError(
+            message="Session has been logged out",
+            code="TOKEN_REVOKED",
+        )
+
+    session_id = str(payload.get("session_id") or f"sysadmin-{email}")
+    return SystemAdminContext(email=email, session_id=session_id, jti=jti)
