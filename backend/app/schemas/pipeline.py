@@ -3,14 +3,14 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ScopeContext(BaseModel):
     tenant_id: str
     user_id: str
     email: str
-    name: str
+    name: str = ""
     persona_type: str
     department: str | None = None
     external_id: str
@@ -33,7 +33,7 @@ class ScopeContext(BaseModel):
     business_hours_end: int = 19
     require_trusted_device_for_sensitive: bool = True
     require_mfa_for_sensitive: bool = True
-    session_id: str
+    session_id: str = "session-unknown"
     session_ip: str | None = None
     device_trusted: bool = True
     mfa_verified: bool = True
@@ -43,6 +43,7 @@ class InterpretedIntent(BaseModel):
     name: str
     domain: str
     entity_type: str
+    persona_types: tuple[str, ...] = ()
     raw_prompt: str
     sanitized_prompt: str
     aliased_prompt: str
@@ -78,11 +79,20 @@ class CompiledQueryPlan(BaseModel):
     source_binding_id: str | None = None
     domain: str
     entity_type: str
+    select_keys: list[str] = Field(default_factory=list)
     select_claim_keys: list[str] = Field(default_factory=list)
     filters: dict[str, Any] = Field(default_factory=dict)
     slot_map: dict[str, str] = Field(default_factory=dict)
     requires_aggregate: bool = False
     parameterized_signature: str
+
+    @model_validator(mode="after")
+    def _sync_select_key_fields(self) -> "CompiledQueryPlan":
+        if self.select_keys and not self.select_claim_keys:
+            self.select_claim_keys = list(self.select_keys)
+        elif self.select_claim_keys and not self.select_keys:
+            self.select_keys = list(self.select_claim_keys)
+        return self
 
 
 class PolicyDecision(BaseModel):
