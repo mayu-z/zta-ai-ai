@@ -1,6 +1,8 @@
 ﻿from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import re
+import time
 from collections import defaultdict
 from typing import Any
 
@@ -9,7 +11,13 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.connectors.base import ConnectorBase
+from app.connectors.base import (
+    ConnectionInfo,
+    ConnectionStatus,
+    ConnectorBase,
+    HealthStatus,
+    SyncResult,
+)
 from app.core.exceptions import ValidationError
 from app.schemas.pipeline import CompiledQueryPlan
 
@@ -57,6 +65,9 @@ class SQLConnector(ConnectorBase):
         claims_table: str = "claims",
         claims_schema: str | None = None,
         column_map: dict[str, str] | None = None,
+        max_retries: int = 2,
+        circuit_breaker_failure_threshold: int = 5,
+        circuit_breaker_reset_seconds: int = 60,
     ) -> None:
         self.connection_url = connection_url
         self.claims_table = self._validate_identifier(claims_table, "claims_table")
@@ -67,6 +78,13 @@ class SQLConnector(ConnectorBase):
         )
         self.column_map = self._build_column_map(column_map or {})
         self._engine: Engine | None = None
+        self.max_retries = max(max_retries, 0)
+        self.circuit_breaker_failure_threshold = max(circuit_breaker_failure_threshold, 1)
+        self.circuit_breaker_reset_seconds = max(circuit_breaker_reset_seconds, 1)
+        self._circuit_open_until: datetime | None = None
+        self._last_query_latency_ms = 0
+        self._consecutive_failures = 0
+        self._last_failure_at: str | None = None
 
     @property
     def engine(self) -> Engine:
@@ -79,33 +97,52 @@ class SQLConnector(ConnectorBase):
             )
         return self._engine
 
-    def connect(self) -> None:
-        try:
-            with self._get_engine().connect() as conn:
-                conn.execute(text("SELECT 1"))
-        except SQLAlchemyError as exc:
+    def connect(self, timeout_seconds: int = 30) -> ConnectionStatus:
+        if timeout_seconds <= 0:
             raise ValidationError(
-                message="Unable to connect to SQL data source",
-                code="SOURCE_CONNECT_FAILED",
-            ) from exc
+                message="timeout_seconds must be greater than 0",
+                code="SOURCE_CONNECT_TIMEOUT_INVALID",
+            )
 
-    def discover_schema(self) -> list[dict[str, Any]]:
+        self._ensure_circuit_allows_requests()
+        started = time.perf_counter()
+        self._run_with_retry(
+            operation=self._probe_connection,
+            error_code="SOURCE_CONNECT_FAILED",
+            error_message="Unable to connect to SQL data source",
+        )
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        return ConnectionStatus(status="connected", response_time_ms=elapsed_ms)
+
+    def discover_schema(self, force_refresh: bool = False) -> list[dict[str, Any]]:
         query = text(
             "SELECT table_name, column_name, data_type "
             "FROM information_schema.columns "
             "WHERE table_schema NOT IN ('pg_catalog', 'information_schema')"
         )
-        try:
-            with self._get_engine().connect() as conn:
-                rows = conn.execute(query).mappings().all()
-                return [dict(row) for row in rows]
-        except SQLAlchemyError as exc:
-            raise ValidationError(
-                message="Failed to discover SQL source schema",
-                code="SOURCE_SCHEMA_DISCOVERY_FAILED",
-            ) from exc
+        self._ensure_circuit_allows_requests()
 
-    def execute_query(self, db: Session, plan: CompiledQueryPlan) -> dict[str, Any]:
+        rows = self._run_with_retry(
+            operation=lambda: self._discover_schema_rows(query),
+            error_code="SOURCE_SCHEMA_DISCOVERY_FAILED",
+            error_message="Failed to discover SQL source schema",
+        )
+        return [dict(row) for row in rows]
+
+    def execute_query(
+        self,
+        db: Session,
+        plan: CompiledQueryPlan,
+        timeout_seconds: int = 60,
+    ) -> dict[str, Any]:
+        if timeout_seconds <= 0:
+            raise ValidationError(
+                message="timeout_seconds must be greater than 0",
+                code="SOURCE_QUERY_TIMEOUT_INVALID",
+            )
+
+        self._ensure_circuit_allows_requests()
+        started = time.perf_counter()
         table = self._load_claims_table()
 
         claim_key_col = self._column(table, "claim_key")
@@ -123,7 +160,7 @@ class SQLConnector(ConnectorBase):
             self._column(table, "tenant_id") == str(filters["tenant_id"]),
             self._column(table, "domain") == str(filters["domain"]),
             self._column(table, "entity_type") == str(filters["entity_type"]),
-            claim_key_col.in_(plan.select_claim_keys),
+            claim_key_col.in_(plan.select_keys),
         )
 
         if filters.get("owner_id"):
@@ -143,18 +180,15 @@ class SQLConnector(ConnectorBase):
         if isinstance(course_ids, list) and course_ids:
             stmt = stmt.where(self._column(table, "course_id").in_(course_ids))
 
-        try:
-            with self._get_engine().connect() as conn:
-                rows = conn.execute(stmt).mappings().all()
-        except SQLAlchemyError as exc:
-            raise ValidationError(
-                message="SQL source query execution failed",
-                code="SOURCE_QUERY_FAILED",
-            ) from exc
+        rows = self._run_with_retry(
+            operation=lambda: self._execute_statement(stmt),
+            error_code="SOURCE_QUERY_FAILED",
+            error_message="SQL source query execution failed",
+        )
 
         if not rows:
             raise ValidationError(
-                message="No claims matched this scoped query",
+                message="No records matched this scoped query",
                 code="NO_CLAIMS_FOUND",
             )
 
@@ -177,13 +211,173 @@ class SQLConnector(ConnectorBase):
                 requires_aggregate=plan.requires_aggregate,
             )
 
-        for expected_key in plan.select_claim_keys:
+        for expected_key in plan.select_keys:
             result.setdefault(expected_key, None)
 
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        self._last_query_latency_ms = elapsed_ms
         return result
 
-    def sync(self) -> None:
-        return None
+    def sync(self) -> SyncResult:
+        started = time.perf_counter()
+        try:
+            schema = self.discover_schema(force_refresh=False)
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            return SyncResult(
+                status="complete",
+                tables_discovered=len({row.get("table_name") for row in schema}),
+                tables_added=0,
+                tables_removed=0,
+                fields_changed=0,
+                duration_ms=elapsed_ms,
+                errors=[],
+            )
+        except ValidationError as exc:
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            return SyncResult(
+                status="failed",
+                tables_discovered=0,
+                tables_added=0,
+                tables_removed=0,
+                fields_changed=0,
+                duration_ms=elapsed_ms,
+                errors=[exc.message],
+            )
+
+    def health_check(self) -> HealthStatus:
+        if self._is_circuit_open():
+            return HealthStatus(
+                status="degraded",
+                last_query_latency_ms=self._last_query_latency_ms,
+                consecutive_failures=self._consecutive_failures,
+                last_failure_at=self._last_failure_at,
+                recommendation=(
+                    "Circuit breaker is open; retry after "
+                    f"{self._remaining_circuit_seconds()} seconds"
+                ),
+            )
+
+        try:
+            self.connect(timeout_seconds=30)
+            return HealthStatus(
+                status="healthy",
+                last_query_latency_ms=self._last_query_latency_ms,
+                consecutive_failures=self._consecutive_failures,
+                last_failure_at=self._last_failure_at,
+                recommendation="No action required",
+            )
+        except ValidationError as exc:
+            return HealthStatus(
+                status="error",
+                last_query_latency_ms=self._last_query_latency_ms,
+                consecutive_failures=self._consecutive_failures,
+                last_failure_at=self._last_failure_at,
+                recommendation=exc.message,
+            )
+
+    def get_connection_info(self) -> ConnectionInfo:
+        source_type = self.connection_url.split("://", 1)[0].split("+", 1)[0]
+        return ConnectionInfo(
+            connector_id="sql_connector",
+            tenant_id=None,
+            source_type=source_type,
+            supports_sync=True,
+            supports_live_queries=True,
+        )
+
+    def _record_success(self, latency_ms: int) -> None:
+        self._last_query_latency_ms = latency_ms
+        self._consecutive_failures = 0
+        self._last_failure_at = None
+        self._circuit_open_until = None
+
+    def _record_failure(self, latency_ms: int) -> None:
+        self._last_query_latency_ms = latency_ms
+        self._consecutive_failures += 1
+        self._last_failure_at = datetime.now(tz=UTC).isoformat()
+        if self._consecutive_failures >= self.circuit_breaker_failure_threshold:
+            self._circuit_open_until = datetime.now(tz=UTC) + timedelta(
+                seconds=self.circuit_breaker_reset_seconds
+            )
+
+    def _ensure_circuit_allows_requests(self) -> None:
+        if self._is_circuit_open():
+            raise ValidationError(
+                message=(
+                    "Connector circuit breaker is open due to repeated failures; "
+                    f"retry after {self._remaining_circuit_seconds()} seconds"
+                ),
+                code="SOURCE_CIRCUIT_OPEN",
+            )
+
+    def _is_circuit_open(self) -> bool:
+        if self._circuit_open_until is None:
+            return False
+        return datetime.now(tz=UTC) < self._circuit_open_until
+
+    def _remaining_circuit_seconds(self) -> int:
+        if self._circuit_open_until is None:
+            return 0
+        remaining = (self._circuit_open_until - datetime.now(tz=UTC)).total_seconds()
+        return max(int(remaining), 0)
+
+    def _run_with_retry(
+        self,
+        *,
+        operation,
+        error_code: str,
+        error_message: str,
+    ):
+        attempts = self.max_retries + 1
+        last_exc: Exception | None = None
+
+        for attempt in range(attempts):
+            started = time.perf_counter()
+            try:
+                result = operation()
+                elapsed_ms = int((time.perf_counter() - started) * 1000)
+                self._record_success(elapsed_ms)
+                return result
+            except SQLAlchemyError as exc:
+                elapsed_ms = int((time.perf_counter() - started) * 1000)
+                self._record_failure(elapsed_ms)
+                last_exc = exc
+
+                if attempt < self.max_retries and self._is_transient_sql_error(exc):
+                    continue
+                break
+
+        raise ValidationError(
+            message=error_message,
+            code=error_code,
+        ) from last_exc
+
+    def _probe_connection(self) -> None:
+        with self._get_engine().connect() as conn:
+            conn.execute(text("SELECT 1"))
+
+    def _discover_schema_rows(self, query):
+        with self._get_engine().connect() as conn:
+            return conn.execute(query).mappings().all()
+
+    def _execute_statement(self, stmt):
+        with self._get_engine().connect() as conn:
+            return conn.execute(stmt).mappings().all()
+
+    def _is_transient_sql_error(self, exc: SQLAlchemyError) -> bool:
+        transient_markers = (
+            "timeout",
+            "timed out",
+            "temporar",
+            "connection reset",
+            "connection refused",
+            "server closed",
+            "could not connect",
+            "too many connections",
+            "try again",
+        )
+        message = str(exc).lower()
+        return any(marker in message for marker in transient_markers)
 
     def _load_claims_table(self) -> Table:
         metadata = MetaData()
