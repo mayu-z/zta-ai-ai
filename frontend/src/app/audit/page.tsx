@@ -36,6 +36,9 @@ export default function AuditPage() {
       router.replace("/login");
       return;
     }
+    if (user?.persona !== "it_head") {
+      return;
+    }
 
     getAuditLog(token, page, 25, blockedOnly)
       .then((response) => {
@@ -49,7 +52,7 @@ export default function AuditPage() {
         addError(message);
         setItems([]);
       });
-  }, [addError, blockedOnly, hydrated, page, router, token]);
+  }, [addError, blockedOnly, hydrated, page, router, token, user?.persona]);
 
   if (!hydrated || !token) {
     return (
@@ -72,7 +75,7 @@ export default function AuditPage() {
             <div className="text-center">
               <ShieldAlert className="mx-auto h-8 w-8 text-primary-hover" />
               <p className="mt-2 text-sm text-text-primary">Audit log requires IT Head persona.</p>
-              <p className="text-xs text-text-muted">Sign in as ithead@ipeds.local to access this page.</p>
+              <p className="text-xs text-text-muted">Sign in as an IT Head account to access this page.</p>
             </div>
           </div>
         </section>

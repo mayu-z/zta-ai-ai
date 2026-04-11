@@ -9,6 +9,7 @@ import { useAuthStore } from "@/stores/authStore";
 export default function RootPage() {
   const router = useRouter();
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
   const hydrated = useAuthStore((state) => state.hydrated);
 
   useEffect(() => {
@@ -16,11 +17,19 @@ export default function RootPage() {
       return;
     }
     if (token) {
+      if (user?.persona === "system_admin") {
+        router.replace("/system-admin");
+        return;
+      }
+      if (user?.persona === "it_head") {
+        router.replace("/tenant-admin");
+        return;
+      }
       router.replace("/chat");
       return;
     }
     router.replace("/login");
-  }, [hydrated, token, router]);
+  }, [hydrated, token, user?.persona, router]);
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6">

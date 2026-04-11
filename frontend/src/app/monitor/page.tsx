@@ -1,7 +1,5 @@
-"use client";
-
-import RuntimeWorkspace from "@/components/runtime/RuntimeWorkspace";
+import { redirect } from "next/navigation";
 
 export default function MonitorPage() {
-  return <RuntimeWorkspace activeView="monitor" />;
+  redirect("/tenant-admin");
 }
