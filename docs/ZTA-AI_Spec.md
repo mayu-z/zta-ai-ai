@@ -1,6 +1,8 @@
 # ZTA-AI Campus Platform — Engineering Specification (SLM-Strict)
 **Version 1.0 • March 2026 • CONFIDENTIAL — INTERNAL USE ONLY**
 
+**Plan Alignment / Supersession Note:** This specification remains useful for baseline engineering context, but `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026) is now the authoritative source for production scope, phase gates, and acceptance criteria. See `docs/PLAN_ALIGNMENT.md`.
+
 ---
 
 ## 1. What We Are Building
