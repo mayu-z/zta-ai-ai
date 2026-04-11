@@ -1,5 +1,7 @@
 # ZTA-AI High Level Design (HLD)
 
+**Plan Alignment:** This HLD is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). In case of conflict, use the plan. See `docs/PLAN_ALIGNMENT.md`.
+
 ## 1. System Context Diagram
 
 ```mermaid
@@ -10,11 +12,11 @@ C4Context
     
     System(ztaai, "ZTA-AI Platform", "Secure AI-powered campus assistant with Zero Trust architecture")
     
-    System_Ext(google, "Google OAuth", "Identity provider for SSO")
+    System_Ext(idp, "Enterprise Identity Provider", "OIDC/SAML identity provider for SSO")
     System_Ext(datasources, "Campus Data Sources", "ERPNext, Google Sheets, MySQL databases")
     
     Rel(user, ztaai, "Asks questions via", "HTTPS/WSS")
-    Rel(ztaai, google, "Authenticates via", "OAuth 2.0")
+    Rel(ztaai, idp, "Authenticates via", "OIDC/SAML + MFA")
     Rel(ztaai, datasources, "Fetches claims from", "API/DB connections")
 ```
 
