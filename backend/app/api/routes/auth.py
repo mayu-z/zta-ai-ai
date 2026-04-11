@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
@@ -18,6 +19,10 @@ from app.schemas.auth import (
     AuthUser,
     GoogleAuthRequest,
     LogoutResponse,
+    MFATOTPEnrollResponse,
+    MFATOTPVerifyRequest,
+    MFATOTPVerifyResponse,
+    OIDCAuthRequest,
     RefreshRequest,
     RefreshResponse,
 )
@@ -45,6 +50,60 @@ def auth_google(
             department=user.department,
         ),
     )
+
+
+@router.post("/oidc", response_model=AuthResponse)
+def auth_oidc(
+    payload: OIDCAuthRequest, db: Session = Depends(get_db)
+) -> AuthResponse:
+    token, user, _scope = identity_service.authenticate_oidc(
+        db=db,
+        id_token=payload.id_token,
+    )
+    return AuthResponse(
+        jwt=token,
+        user=AuthUser(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            persona=user.persona_type.value,
+            department=user.department,
+        ),
+    )
+
+
+@router.post("/mfa/totp/enroll", response_model=MFATOTPEnrollResponse)
+def enroll_totp(
+    scope: ScopeContext = Depends(get_current_scope),
+    db: Session = Depends(get_db),
+) -> MFATOTPEnrollResponse:
+    enrolled = identity_service.enroll_totp(db=db, user_id=scope.user_id)
+    return MFATOTPEnrollResponse(
+        method=enrolled["method"],
+        secret=enrolled["secret"],
+        otpauth_uri=enrolled["otpauth_uri"],
+    )
+
+
+@router.post("/mfa/totp/verify", response_model=MFATOTPVerifyResponse)
+def verify_totp(
+    payload: MFATOTPVerifyRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    scope: ScopeContext = Depends(get_current_scope),
+    db: Session = Depends(get_db),
+) -> MFATOTPVerifyResponse:
+    if credentials is None:
+        raise AuthenticationError(message="Missing bearer token", code="TOKEN_REQUIRED")
+
+    identity_service.verify_totp_code(db=db, user_id=scope.user_id, code=payload.code)
+
+    decoded = decode_access_token(credentials.credentials)
+    stripped = {k: v for k, v in decoded.items() if k not in {"exp", "iat"}}
+    stripped["mfa_verified"] = True
+    stripped["jti"] = str(uuid.uuid4())
+
+    refreshed = create_access_token(stripped)
+    return MFATOTPVerifyResponse(jwt=refreshed, mfa_verified=True)
 
 
 @router.post("/refresh", response_model=RefreshResponse)
