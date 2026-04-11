@@ -93,13 +93,12 @@ jobs:
         env:
           AUTH_PROVIDER: mock_google
           USE_MOCK_GOOGLE_OAUTH: "true"
-          ZTA_SEED_PROFILE: test
         run: |
           python scripts/performance_load_gate.py \
             --max-inflight-requests 10 \
             --recovery-timeout-seconds 300 \
             --recovery-check-interval-seconds 10 \
-            --query-login-token mock:executive@ipeds.local \
+            --query-login-token mock:executive@local.test \
             --query-warmup-requests 10 \
             --regression-baseline-file scripts/performance_regression_baseline.json \
             --regression-max-p95-percent 30 \
