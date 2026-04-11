@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-04-11T00:00:00+00:00",
+  "scenarios": {
+    "burst_spike": {
+      "error_rate_percent": 0.0,
+      "p95_latency_ms": 700.0,
+      "p99_latency_ms": 1200.0
+    },
+    "normal_load": {
+      "error_rate_percent": 0.0,
+      "p95_latency_ms": 400.0,
+      "p99_latency_ms": 800.0
+    },
+    "peak_load": {
+      "error_rate_percent": 0.0,
+      "p95_latency_ms": 450.0,
+      "p99_latency_ms": 850.0
+    },
+    "post_burst_recovery_probe": {
+      "error_rate_percent": 0.0,
+      "p95_latency_ms": 450.0,
+      "p99_latency_ms": 850.0
+    },
+    "query_path_normal_load": {
+      "error_rate_percent": 0.0,
+      "p95_latency_ms": 700.0,
+      "p99_latency_ms": 1500.0
+    },
+    "query_path_peak_load": {
+      "error_rate_percent": 0.0,
+      "p95_latency_ms": 900.0,
+      "p99_latency_ms": 1700.0
+    }
+  }
+}
