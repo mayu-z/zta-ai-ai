@@ -1,5 +1,7 @@
 # ZTA-AI — Market Scope & Business Opportunity (SLM-Strict)
 
+**Plan Alignment:** This market document is aligned to `ZTA_AI_FINAL_PRODUCT_PRODUCTION_PLAN.md` (v3.0, April 11, 2026). If business priorities conflict, the plan file takes precedence. See `docs/PLAN_ALIGNMENT.md`.
+
 **// converging two of the fastest-growing markets on earth**
 
 ---
