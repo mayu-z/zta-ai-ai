@@ -9,8 +9,9 @@ os.environ["DATABASE_URL"] = "sqlite:///./test_zta.db"
 os.environ["REDIS_URL"] = "redis://localhost:6399/0"
 os.environ["CELERY_BROKER_URL"] = "redis://localhost:6399/1"
 os.environ["CELERY_RESULT_BACKEND"] = "redis://localhost:6399/2"
+os.environ["AUTH_PROVIDER"] = "mock_google"
 os.environ["USE_MOCK_GOOGLE_OAUTH"] = "true"
-os.environ["JWT_SECRET_KEY"] = "test-secret"
+os.environ["JWT_SECRET_KEY"] = "test-secret-key-that-is-at-least-thirty-two-chars"
 os.environ["SLM_PROVIDER"] = "nvidia"
 os.environ["SLM_API_KEY"] = "test-key"
 os.environ["ZTA_SEED_PROFILE"] = "test"
@@ -94,3 +95,8 @@ def db_session():
         yield db
     finally:
         db.close()
+
+
+@pytest.fixture
+def db(db_session):
+    return db_session
