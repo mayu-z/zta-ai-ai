@@ -438,7 +438,9 @@ class SLMSimulator:
             graph_context_block = ""
             if graph_context:
                 graph_domain = str(graph_context.get("domain") or intent.domain)
-                graph_role = str(graph_context.get("role_key") or scope.role_key or "")
+                graph_role = str(
+                    graph_context.get("role_key") or getattr(scope, "role_key", "") or ""
+                )
                 graph_sources = graph_context.get("bound_sources")
                 graph_sources_text = ""
                 if isinstance(graph_sources, list):
@@ -461,13 +463,19 @@ class SLMSimulator:
                     "Use this graph context to shape wording and reasoning while preserving strict slot placeholders.\n\n"
                 )
 
+            user_request = str(
+                getattr(intent, "sanitized_prompt", "")
+                or getattr(intent, "raw_prompt", "")
+                or getattr(intent, "name", "")
+            )
+
             prompt = (
                 "You are a trusted rendering assistant inside a Zero Trust AI system. "
                 "Your job is to generate a natural, helpful, human-readable response template for a user query. "
                 "You will be given the user's role, their intent, and the data slots that will be filled in later by the trusted system. "
                 "Think carefully about what this user actually needs to know and how to present it clearly.\n\n"
                 f"User role: {scope.persona_type}\n"
-                f"User request: {intent.sanitized_prompt}\n"
+                f"User request: {user_request}\n"
                 f"Intent: {intent.name}\n"
                 f"Domain: {intent.domain}\n"
                 f"Entity type: {intent.entity_type}\n"
