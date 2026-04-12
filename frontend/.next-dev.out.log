@@ -1,0 +1,34 @@
+
+> frontend-next@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.2 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.6:3000
+✓ Ready in 469ms
+Creating turbopack project { dir: 'E:\\ZTA-AI\\frontend', testMode: true }
+
+ GET / 200 in 1906ms (next.js: 1718ms, application-code: 188ms)
+ GET / 200 in 287ms (next.js: 9ms, application-code: 278ms)
+ GET /login 200 in 1215ms (next.js: 1048ms, application-code: 168ms)
+ GET /chat 200 in 763ms (next.js: 640ms, application-code: 122ms)
+ GET / 200 in 93ms (next.js: 7ms, application-code: 86ms)
+ GET /chat 200 in 67ms (next.js: 9ms, application-code: 58ms)
+ GET /sources 200 in 851ms (next.js: 800ms, application-code: 51ms)
+ GET /sources 200 in 33ms (next.js: 4ms, application-code: 29ms)
+ GET /audit 200 in 971ms (next.js: 847ms, application-code: 124ms)
+ GET /chat 200 in 48ms (next.js: 9ms, application-code: 39ms)
+ GET /health 404 in 408ms (next.js: 357ms, application-code: 51ms)
+ GET /chat 200 in 396ms (next.js: 8ms, application-code: 389ms)
+ GET /login 200 in 94ms (next.js: 5ms, application-code: 89ms)
+ GET /login 200 in 54ms (next.js: 7ms, application-code: 48ms)
+ GET /chat 200 in 26ms (next.js: 4ms, application-code: 22ms)
+ GET /login 200 in 112ms (next.js: 8ms, application-code: 104ms)
+ GET /login 200 in 68ms (next.js: 4ms, application-code: 64ms)
+ GET /chat 200 in 29ms (next.js: 6ms, application-code: 23ms)
+ GET /login 200 in 71ms (next.js: 4ms, application-code: 67ms)
+ GET /login 200 in 35ms (next.js: 4ms, application-code: 31ms)
+ GET /chat 200 in 25ms (next.js: 3ms, application-code: 22ms)
+ GET /login 200 in 82ms (next.js: 7ms, application-code: 75ms)
+ GET /login 200 in 39ms (next.js: 4ms, application-code: 34ms)
+ GET /chat 200 in 28ms (next.js: 6ms, application-code: 22ms)
