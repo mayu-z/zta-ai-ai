@@ -7,7 +7,7 @@ import pytest
 
 from app.agentic.connectors.base import MissingScopeFilter
 from app.agentic.connectors.upi import UPIGatewayConnector
-from app.agentic.models.execution_plan import ReadExecutionPlan, ScopeFilter
+from app.agentic.models.execution_plan import ScopeFilter, WriteExecutionPlan
 
 
 @pytest.mark.asyncio
@@ -26,12 +26,9 @@ async def test_upi_scope_double_enforcement_blocks_mismatch() -> None:
     connector._connected = True
     connector._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-    plan = ReadExecutionPlan(
+    plan = WriteExecutionPlan(
         plan_id="upi-1",
         entity="payment_order",
-        fields=[],
-        filters=[],
-        scope=ScopeFilter(tenant_id=str(connector.tenant_id), user_alias="STU-001", department_id="CS"),
         operation="create_link",
         payload={
             "amount_paise": 300000,
@@ -40,10 +37,10 @@ async def test_upi_scope_double_enforcement_blocks_mismatch() -> None:
             "customer_alias": "STU-002",
             "expiry_seconds": 1800,
         },
-        limit=1,
+        scope=ScopeFilter(tenant_id=str(connector.tenant_id), user_alias="STU-001", department_id="CS"),
     )
 
     with pytest.raises(MissingScopeFilter):
-        await connector.execute(plan)
+        await connector.write(plan)
 
     assert call_count["count"] == 0

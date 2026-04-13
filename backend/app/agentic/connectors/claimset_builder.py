@@ -107,6 +107,9 @@ class ClaimSetBuilder:
                     claims[alias] = value
                 classifications[alias] = classification
 
+        claims.setdefault("tenant_id", str(tenant_id))
+        classifications.setdefault("tenant_id", "GENERAL")
+
         return ClaimSet(
             claims=claims,
             field_classifications=classifications,
@@ -120,6 +123,8 @@ class ClaimSetBuilder:
         return "TKN-" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12].upper()
 
     def _must_tokenise(self, *, alias: str, classification: str) -> bool:
+        if alias.lower() in {"tenant_id", "department_id", "user_alias", "subject_alias"}:
+            return False
         class_tag = classification.upper()
         if class_tag in {"IDENTIFIER", "SYSTEM_ID"}:
             return True

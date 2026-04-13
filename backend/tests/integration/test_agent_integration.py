@@ -14,7 +14,7 @@ from app.agentic.connectors.base import ConnectorTimeoutError, RawResult
 from app.agentic.connectors.claimset_builder import ClaimSetBuilder, FieldSchema, MaskingEngine, SchemaRegistry
 from app.agentic.core.approval_layer import ApprovalDecision
 from app.agentic.core.audit_logger import AuditLogger
-from app.agentic.core.compiler_interface import CompilerInterface
+from app.agentic.core.compiler_interface import CompilerInterface, ExecutionPlan
 from app.agentic.core.notification_dispatcher import NotificationDispatcher
 from app.agentic.core.policy_engine import PolicyDecision
 from app.agentic.core.scope_guard import ScopeGuard
@@ -60,6 +60,18 @@ class TimeoutRouter:
     async def route_write(self, plan, tenant_id):
         del plan, tenant_id
         raise ConnectorTimeoutError("timeout")
+
+
+class StaticPlanner:
+    async def build_plan(self, action, claim_set, approval, ctx):
+        del claim_set, approval, ctx
+        return ExecutionPlan(
+            action_id=action.action_id,
+            steps=["prepare_response"],
+            write_target=action.write_target,
+            payload={},
+            metadata={},
+        )
 
 
 @pytest.mark.asyncio
@@ -182,7 +194,7 @@ async def test_sensitive_classifications_are_forwarded_from_claimset() -> None:
         action_registry=StaticRegistry(action),
         policy_engine=StaticPolicy(),
         scope_guard=StaticScope(),
-        compiler=CompilerInterface(),
+        compiler=CompilerInterface(planner=StaticPlanner()),
         audit_logger=AuditLogger(),
         sensitive_monitor=monitor,
         notification_dispatcher=NotificationDispatcher(),

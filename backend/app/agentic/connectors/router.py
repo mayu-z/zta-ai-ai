@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 import base64
 import json
@@ -29,6 +30,9 @@ class TenantConfigService:
     """Fetches entity-to-source connector mappings for a tenant."""
 
     async def get_source_for_entity(self, *, entity: str, tenant_id: UUID) -> SourceConfig | None:
+        return await asyncio.to_thread(self._get_source_for_entity_sync, entity, tenant_id)
+
+    def _get_source_for_entity_sync(self, entity: str, tenant_id: UUID) -> SourceConfig | None:
         db = SessionLocal()
         try:
             binding = db.scalar(
@@ -38,22 +42,15 @@ class TenantConfigService:
                 .where(DomainSourceBinding.is_active.is_(True))
             )
 
-            data_source: DataSource | None = None
-            if binding is not None and binding.data_source_id:
-                data_source = db.scalar(
-                    select(DataSource)
-                    .where(DataSource.id == binding.data_source_id)
-                    .where(DataSource.tenant_id == str(tenant_id))
-                    .where(DataSource.status == DataSourceStatus.connected)
-                )
+            if binding is None or not binding.data_source_id:
+                return None
 
-            if data_source is None:
-                data_source = db.scalar(
-                    select(DataSource)
-                    .where(DataSource.tenant_id == str(tenant_id))
-                    .where(DataSource.status == DataSourceStatus.connected)
-                    .order_by(DataSource.created_at.asc())
-                )
+            data_source = db.scalar(
+                select(DataSource)
+                .where(DataSource.id == binding.data_source_id)
+                .where(DataSource.tenant_id == str(tenant_id))
+                .where(DataSource.status == DataSourceStatus.connected)
+            )
 
             if data_source is None:
                 return None
@@ -165,6 +162,7 @@ class ConnectorRouter:
         return ReadExecutionPlan(
             plan_id=plan.plan_id,
             entity=source_config.entity_mapping,
+            action_id=plan.action_id,
             fields=translated_fields,
             filters=translated_filters,
             scope=plan.scope,
@@ -173,6 +171,7 @@ class ConnectorRouter:
             order_by=translated_order,
             limit=plan.limit,
             offset=plan.offset,
+            scope_filters_required=plan.scope_filters_required,
         )
 
     def _translate_write_plan(self, plan: WriteExecutionPlan, source_config: SourceConfig) -> WriteExecutionPlan:
@@ -193,7 +192,9 @@ class ConnectorRouter:
             entity=source_config.entity_mapping,
             operation=plan.operation,
             payload=translated_payload,
+            action_id=plan.action_id,
             filters=translated_filters,
             scope=plan.scope,
             allowed_by_action_id=plan.allowed_by_action_id,
+            scope_filters_required=plan.scope_filters_required,
         )

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.compiler.service import compiler_service
 from app.core.exceptions import ZTAError
 from app.db.models import ControlGraphEdge, ControlGraphNode
+from app.agentic.runtime_bridge import agentic_runtime_bridge
 from app.interpreter.cache import intent_cache_service
 from app.interpreter.conversational import detect_conversational_query, is_unclear_query
 from app.interpreter.service import interpreter_service
@@ -362,6 +363,56 @@ class PipelineService:
             )
 
         try:
+            # Stage A: Agentic routing (enforced chain for enabled agentic actions)
+            with self._track_stage(pipeline_id, "agentic_routing", 1):
+                agentic_outcome = agentic_runtime_bridge.maybe_execute(
+                    query_text=query_text,
+                    scope=scope,
+                )
+
+            if agentic_outcome is not None:
+                latency_ms = int((time.perf_counter() - started) * 1000)
+                response_text = self._append_course_scope_context(
+                    response_text=agentic_outcome.response_text,
+                    scope=scope,
+                    query_text=query_text,
+                )
+
+                history_service.append(
+                    scope.tenant_id,
+                    scope.user_id,
+                    scope.session_id,
+                    "assistant",
+                    response_text,
+                )
+
+                self._enqueue_audit_event(
+                    scope=scope,
+                    query_text=query_text,
+                    intent_hash=agentic_outcome.intent_hash,
+                    domains_accessed=agentic_outcome.domains_accessed,
+                    was_blocked=agentic_outcome.was_blocked,
+                    block_reason=agentic_outcome.block_reason,
+                    response_summary=response_text,
+                    latency_ms=latency_ms,
+                )
+
+                pipeline_monitor.emit_pipeline_complete(
+                    pipeline_id=pipeline_id,
+                    status="success",
+                    total_duration_ms=latency_ms,
+                )
+
+                return PipelineResult(
+                    response_text=response_text,
+                    source=agentic_outcome.source,
+                    latency_ms=latency_ms,
+                    intent_hash=agentic_outcome.intent_hash,
+                    domains_accessed=agentic_outcome.domains_accessed,
+                    was_blocked=agentic_outcome.was_blocked,
+                    block_reason=agentic_outcome.block_reason,
+                )
+
             # Stage 1: Interpreter layer (sanitizer, domain gate, aliaser, intent extraction)
             with self._track_stage(pipeline_id, "interpreter", 1):
                 primary_output = interpreter_service.run(db, scope, query_text)

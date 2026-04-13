@@ -36,7 +36,13 @@ class WriteGuard:
                 code="WRITE_GUARD_TARGET_MISSING",
             )
 
-        target = write_target.split(",", 1)[0].strip()
+        if "," in write_target:
+            raise AuthorizationError(
+                message="Multiple write targets are not allowed for a single action execution",
+                code="WRITE_GUARD_MULTI_TARGET_DENIED",
+            )
+
+        target = write_target.strip()
         entity, sep, operation = target.partition(":")
         if not sep:
             raise AuthorizationError(

@@ -138,12 +138,16 @@ def on_startup() -> None:
     try:
         redis_client.client.ping()
         if redis_client.using_in_memory_fallback:
+            if settings.environment == "production":
+                raise RuntimeError("Redis fallback mode is not allowed in production")
             logger.warning(
-                "Redis fallback mode is active. Intent cache and pipeline monitor pub/sub will be degraded."
+                "Redis fallback mode is active outside production. Intent cache and pipeline monitor pub/sub will be degraded."
             )
         else:
             logger.info("Redis connection established")
-    except Exception:
+    except Exception as exc:
+        if settings.environment == "production":
+            raise RuntimeError("Redis health check failed during startup") from exc
         logger.exception("Redis health check failed during startup")
 
 

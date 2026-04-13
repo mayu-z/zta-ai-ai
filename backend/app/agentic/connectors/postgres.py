@@ -115,6 +115,7 @@ class PostgresConnector(BaseConnector):
     async def execute(self, plan: ReadExecutionPlan) -> RawResult:
         self._ensure_connected()
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
         self._validate_filter_values(plan.filters)
         assert self._engine is not None
 
@@ -129,7 +130,7 @@ class PostgresConnector(BaseConnector):
             mapped_rows = [dict(row) for row in rows]
             await self._audit_execution(
                 event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                action_id=plan.action_id or plan.plan_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="SUCCESS",
                 fields=list(mapped_rows[0].keys()) if mapped_rows else list(plan.fields),
@@ -150,7 +151,7 @@ class PostgresConnector(BaseConnector):
             mapped = self._map_db_error(exc)
             await self._audit_execution(
                 event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                action_id=plan.action_id or plan.plan_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="FAILED",
                 fields=list(plan.fields),
@@ -164,6 +165,7 @@ class PostgresConnector(BaseConnector):
     async def write(self, plan: WriteExecutionPlan) -> WriteResult:
         self._ensure_connected()
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
         self._validate_filter_values(plan.filters)
         assert self._engine is not None
 
@@ -184,7 +186,7 @@ class PostgresConnector(BaseConnector):
 
             await self._audit_execution(
                 event_type="CONNECTOR_WRITE",
-                action_id=plan.allowed_by_action_id,
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="SUCCESS",
                 fields=list(plan.payload.keys()),
@@ -192,6 +194,7 @@ class PostgresConnector(BaseConnector):
                 execution_time_ms=elapsed,
                 source_alias=plan.entity,
                 payload=plan.payload,
+                critical=True,
             )
             return WriteResult(
                 rows_affected=rows_affected,
@@ -205,7 +208,7 @@ class PostgresConnector(BaseConnector):
             mapped = self._map_db_error(exc)
             await self._audit_execution(
                 event_type="CONNECTOR_WRITE",
-                action_id=plan.allowed_by_action_id,
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="FAILED",
                 fields=list(plan.payload.keys()),

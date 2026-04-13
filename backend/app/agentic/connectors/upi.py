@@ -65,8 +65,17 @@ class UPIGatewayConnector(BaseConnector):
         }
 
     async def execute(self, plan: ReadExecutionPlan) -> RawResult:
+        del plan
+        raise ConnectorError("UPI connector does not support read operations")
+
+    async def write(self, plan: WriteExecutionPlan) -> WriteResult:
         self._ensure_connected()
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
+        self._validate_filter_values(plan.filters)
+
+        if str(plan.operation).strip().lower() != "create_link":
+            raise ConnectorError(f"UPI connector supports only create_link writes, got '{plan.operation}'")
 
         payload = dict(plan.payload)
         if plan.scope.user_alias != payload.get("customer_alias"):
@@ -77,8 +86,8 @@ class UPIGatewayConnector(BaseConnector):
             row = await self._create_order(payload)
             elapsed = (time.perf_counter() - started) * 1000
             await self._audit_execution(
-                event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                event_type="CONNECTOR_WRITE",
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="SUCCESS",
                 fields=list(row.keys()),
@@ -86,12 +95,13 @@ class UPIGatewayConnector(BaseConnector):
                 execution_time_ms=elapsed,
                 source_alias=self._gateway_type,
                 payload=payload,
+                critical=True,
             )
-            return RawResult(
-                rows=[row],
-                row_count=1,
+            return WriteResult(
+                rows_affected=1,
+                generated_id=str(row.get("order_id") or "") or None,
                 execution_time_ms=elapsed,
-                source_schema=self._gateway_type,
+                details=row,
             )
         except MissingScopeFilter:
             raise
@@ -99,8 +109,8 @@ class UPIGatewayConnector(BaseConnector):
             elapsed = (time.perf_counter() - started) * 1000
             mapped = self._map_error(exc)
             await self._audit_execution(
-                event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                event_type="CONNECTOR_WRITE",
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="FAILED",
                 fields=list(payload.keys()),
@@ -111,10 +121,6 @@ class UPIGatewayConnector(BaseConnector):
                 error=str(mapped),
             )
             raise mapped from exc
-
-    async def write(self, plan: WriteExecutionPlan) -> WriteResult:
-        del plan
-        raise ConnectorError("UPI connector does not support write operations")
 
     async def health_check(self) -> ConnectorHealth:
         started = time.perf_counter()

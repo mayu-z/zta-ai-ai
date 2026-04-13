@@ -116,3 +116,51 @@ async def test_execute_write_raises_when_no_rows() -> None:
 
     with pytest.raises(WriteFailure):
         await planner.execute_write(action, payload={"employee_id": "FAC-1"}, ctx=ctx)
+
+
+@pytest.mark.asyncio
+async def test_execute_write_uses_write_path_for_side_effect_operations() -> None:
+    tenant_id = uuid4()
+    action = ActionConfig(
+        action_id="email_send_v1",
+        tenant_id=tenant_id,
+        display_name="Email",
+        description="desc",
+        trigger_type="user_query",
+        required_data_scope=["user_profile.own"],
+        output_type="email",
+        write_target="email:send_email",
+        allowed_personas=["student", "staff"],
+    )
+    ctx = RequestContext(
+        tenant_id=tenant_id,
+        user_alias="STU-1",
+        session_id="sid",
+        persona="student",
+        department_id="CS",
+        jwt_claims={},
+    )
+
+    router = StubRouter()
+    planner = ExecutionPlanner(
+        scope_injector=ScopeInjector(),
+        connector_router=router,
+        claimset_builder=ClaimSetBuilder(SchemaRegistry(), MaskingEngine()),
+        write_guard=WriteGuard(),
+        audit_logger=AuditLogger(),
+    )
+
+    result = await planner.execute_write(
+        action,
+        payload={
+            "from_alias": "STU-1",
+            "to": ["student@university.edu"],
+            "subject": "Reminder",
+            "body": "Body",
+        },
+        ctx=ctx,
+    )
+
+    assert result.rows_affected == 1
+    assert router.read_calls == 0
+    assert router.write_calls == 1

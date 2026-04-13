@@ -30,13 +30,7 @@ from .scope_injector import ScopeInjector
 from .write_guard import WriteGuard
 
 
-FALLBACKS = {
-    "postgres": "Data temporarily unavailable. Please try again in a few minutes.",
-    "erpnext": "University ERP is not responding. Finance team has been notified.",
-    "upi_gateway": "Payment link generation temporarily unavailable. Please contact the Finance Office.",
-    "smtp": "Email delivery is queued and will be sent shortly.",
-    "calendar": "Calendar service is unavailable. Please check availability manually.",
-}
+SIDE_EFFECT_OPERATIONS = {"send_email", "create_link", "create_event"}
 
 
 class WriteFailure(Exception):
@@ -45,6 +39,7 @@ class WriteFailure(Exception):
 
 @dataclass(frozen=True)
 class ConnectorExecutionContext:
+    action_id: str
     entity: str
     plan_id: str
     tenant_id: str
@@ -113,19 +108,27 @@ class ExecutionPlanner:
             entity = descriptor.split(".", 1)[0]
             scope_filter, additional_filters = self._scope.inject(action, ctx, entity)
             self._validate_scope(scope_filter)
+            scope_filters_required = self._descriptor_requires_scope_filter(descriptor)
+            if scope_filters_required and not additional_filters:
+                raise MissingScopeFilter(
+                    f"Scope filter is required for descriptor '{descriptor}' and entity '{entity}'"
+                )
 
             plan = ReadExecutionPlan(
                 plan_id=generate_plan_id(),
                 entity=entity,
+                action_id=action.action_id,
                 fields=[],
                 filters=additional_filters,
                 scope=scope_filter,
                 limit=int(action.extra_config.get("max_rows", 100)),
                 operation=str(action.extra_config.get("operation", "")) or None,
                 payload=dict(action.extra_config.get("payload", {})),
+                scope_filters_required=scope_filters_required,
             )
 
             execution_context = ConnectorExecutionContext(
+                action_id=action.action_id,
                 entity=entity,
                 plan_id=plan.plan_id,
                 tenant_id=str(ctx.tenant_id),
@@ -177,41 +180,14 @@ class ExecutionPlanner:
         ctx: RequestContext,
     ):
         parsed = self._write_guard.validate(action_id=action.action_id, write_target=action.write_target)
-        scope_filter, _ = self._scope.inject(action, ctx, parsed.entity)
+        scope_filter, additional_filters = self._scope.inject(action, ctx, parsed.entity)
         self._validate_scope(scope_filter)
 
         operation = parsed.operation
-        if operation in {"send_email", "create_link"}:
-            read_plan = ReadExecutionPlan(
-                plan_id=generate_plan_id(),
-                entity=parsed.entity,
-                fields=[],
-                filters=[],
-                scope=scope_filter,
-                operation=operation,
-                payload=payload,
-                limit=1,
-            )
-            raw = await self._read_with_retry(
-                plan=read_plan,
-                ctx=ctx,
-                execution_context=ConnectorExecutionContext(
-                    entity=parsed.entity,
-                    plan_id=read_plan.plan_id,
-                    tenant_id=str(ctx.tenant_id),
-                    user_alias=ctx.user_alias,
-                ),
-            )
-            generated_id = None
-            details = None
-            if raw.rows:
-                details = dict(raw.rows[0])
-                generated_id = str(raw.rows[0].get("order_id") or raw.rows[0].get("message_hash") or "") or None
-            return WriteResult(
-                rows_affected=raw.row_count,
-                generated_id=generated_id,
-                execution_time_ms=raw.execution_time_ms,
-                details=details,
+        scope_filters_required = self._descriptor_scope_required_for_write(action, parsed.entity, operation)
+        if scope_filters_required and not additional_filters:
+            raise MissingScopeFilter(
+                f"Write scope filter is required for entity '{parsed.entity}'"
             )
 
         write_plan = WriteExecutionPlan(
@@ -219,9 +195,11 @@ class ExecutionPlanner:
             entity=parsed.entity,
             operation=operation,
             payload=payload,
-            filters=[],
+            action_id=action.action_id,
+            filters=additional_filters,
             scope=scope_filter,
             allowed_by_action_id=action.action_id,
+            scope_filters_required=scope_filters_required,
         )
 
         result = await self._write_with_retry(plan=write_plan, ctx=ctx)
@@ -276,7 +254,7 @@ class ExecutionPlanner:
         await self._audit.write(
             AuditEvent(
                 event_type="CONNECTOR_TIMEOUT",
-                action_id=execution_context.entity,
+                action_id=execution_context.action_id,
                 user_alias=execution_context.user_alias,
                 tenant_id=ctx.tenant_id,
                 status="FAILED",
@@ -303,8 +281,36 @@ class ExecutionPlanner:
                 raise
 
         assert last_timeout is not None
+        await self._audit.write(
+            AuditEvent(
+                event_type="CONNECTOR_TIMEOUT",
+                action_id=plan.action_id or plan.allowed_by_action_id,
+                user_alias=plan.scope.user_alias or "unknown",
+                tenant_id=ctx.tenant_id,
+                status="FAILED",
+                metadata={"plan_id": plan.plan_id, "entity": plan.entity, "operation": plan.operation},
+            )
+        )
         raise last_timeout
 
     def _validate_scope(self, scope: ScopeFilter) -> None:
         if not scope.tenant_id:
             raise MissingScopeFilter("tenant_id is required in every ExecutionPlan scope")
+
+    @staticmethod
+    def _descriptor_requires_scope_filter(descriptor: str) -> bool:
+        token = descriptor.strip().lower()
+        return token.endswith(".own") or token.endswith("department_scope") or ".participants" in token
+
+    def _descriptor_scope_required_for_write(self, action: ActionConfig, entity: str, operation: str) -> bool:
+        normalized_entity = entity.strip().lower()
+        if operation in SIDE_EFFECT_OPERATIONS:
+            return False
+        for descriptor in action.required_data_scope:
+            token = descriptor.strip().lower()
+            descriptor_entity = token.split(".", 1)[0]
+            if descriptor_entity != normalized_entity:
+                continue
+            if self._descriptor_requires_scope_filter(token):
+                return True
+        return False

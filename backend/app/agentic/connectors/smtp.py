@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from email.message import EmailMessage
 import hashlib
@@ -79,20 +80,25 @@ class SMTPConnector(BaseConnector):
         }
 
     async def execute(self, plan: ReadExecutionPlan) -> RawResult:
+        del plan
+        raise ConnectorError("SMTP connector does not support read operations")
+
+    async def write(self, plan: WriteExecutionPlan) -> WriteResult:
         self._ensure_connected()
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
+        self._validate_filter_values(plan.filters)
         assert self._smtp is not None
 
         payload = dict(plan.payload)
-        if not payload:
-            raise ConnectorError("SMTP payload is required")
-
         started = time.perf_counter()
         try:
-            tenant_id = payload.get("tenant_id") or plan.scope.tenant_id
+            tenant_id = str(payload.get("tenant_id") or plan.scope.tenant_id)
             from_alias = str(payload.get("from_alias") or plan.scope.user_alias or "").strip()
             if not from_alias:
                 raise ConnectorError("from_alias is required")
+            if str(plan.scope.user_alias or "").strip() != from_alias:
+                raise MissingScopeFilter("SMTP from_alias must match scope user_alias")
 
             to_list = [str(item).strip() for item in (payload.get("to") or []) if str(item).strip()]
             cc_list = [str(item).strip() for item in (payload.get("cc") or []) if str(item).strip()]
@@ -100,10 +106,10 @@ class SMTPConnector(BaseConnector):
             if not recipients:
                 raise ConnectorError("At least one recipient is required")
 
-            allowed_domains = await self._allowed_domains(str(tenant_id))
+            allowed_domains = await self._allowed_domains(tenant_id)
             self._validate_recipients(recipients=recipients, allowed_domains=allowed_domains)
 
-            from_email = await self._resolve_from_address(alias=from_alias, tenant_id=str(tenant_id))
+            from_email = await self._resolve_from_address(alias=from_alias, tenant_id=tenant_id)
 
             message = EmailMessage()
             message["From"] = from_email
@@ -116,39 +122,42 @@ class SMTPConnector(BaseConnector):
             await self._smtp.send_message(message)
 
             message_hash = hashlib.sha256(message.as_bytes()).hexdigest()
-            self._log_delivery_attempt(
-                tenant_id=str(tenant_id),
+            await asyncio.to_thread(
+                self._log_delivery_attempt,
+                tenant_id=tenant_id,
                 message_hash=message_hash,
                 status="SENT",
             )
 
             elapsed = (time.perf_counter() - started) * 1000
-            row = {
+            details = {
                 "delivery_status": "SENT",
                 "message_hash": message_hash,
                 "from": from_email,
                 "recipient_count": len(recipients),
             }
             await self._audit_execution(
-                event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                event_type="CONNECTOR_WRITE",
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="SUCCESS",
-                fields=list(row.keys()),
+                fields=list(payload.keys()),
                 row_count=1,
                 execution_time_ms=elapsed,
                 source_alias="smtp",
                 payload={"subject": message["Subject"], "to": ",".join(recipients)},
+                critical=True,
             )
-            return RawResult(
-                rows=[row],
-                row_count=1,
+            return WriteResult(
+                rows_affected=1,
+                generated_id=message_hash,
                 execution_time_ms=elapsed,
-                source_schema="smtp",
+                details=details,
             )
         except Exception as exc:  # noqa: BLE001
             message_hash = hashlib.sha256(str(payload).encode("utf-8")).hexdigest()
-            self._log_delivery_attempt(
+            await asyncio.to_thread(
+                self._log_delivery_attempt,
                 tenant_id=str(payload.get("tenant_id") or plan.scope.tenant_id),
                 message_hash=message_hash,
                 status="FAILED",
@@ -157,8 +166,8 @@ class SMTPConnector(BaseConnector):
             elapsed = (time.perf_counter() - started) * 1000
             mapped = self._map_error(exc)
             await self._audit_execution(
-                event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                event_type="CONNECTOR_WRITE",
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="FAILED",
                 fields=list(payload.keys()),
@@ -169,10 +178,6 @@ class SMTPConnector(BaseConnector):
                 error=str(mapped),
             )
             raise mapped from exc
-
-    async def write(self, plan: WriteExecutionPlan) -> WriteResult:
-        del plan
-        raise ConnectorError("SMTP connector does not support write operations")
 
     async def health_check(self) -> ConnectorHealth:
         started = time.perf_counter()
@@ -199,6 +204,9 @@ class SMTPConnector(BaseConnector):
             )
 
     async def _resolve_from_address(self, alias: str, tenant_id: str) -> str:
+        return await asyncio.to_thread(self._resolve_from_address_sync, alias, tenant_id)
+
+    def _resolve_from_address_sync(self, alias: str, tenant_id: str) -> str:
         db = SessionLocal()
         try:
             user = (
@@ -223,6 +231,9 @@ class SMTPConnector(BaseConnector):
                 raise ConnectorError(f"Recipient {recipient} outside allowed domains")
 
     async def _allowed_domains(self, tenant_id: str) -> list[str]:
+        return await asyncio.to_thread(self._allowed_domains_sync, tenant_id)
+
+    def _allowed_domains_sync(self, tenant_id: str) -> list[str]:
         config_domains = self._config.get("tenant_allowed_domains")
         if isinstance(config_domains, list) and config_domains:
             return [str(item) for item in config_domains]

@@ -117,6 +117,31 @@ class BaseConnector(ABC):
                 f"Scope tenant_id {scope.tenant_id} does not match connector tenant_id {self._tenant_id}"
             )
 
+    def _validate_scope_filters(
+        self,
+        filters: list[QueryFilter],
+        scope: ScopeFilter,
+        scope_filters_required: bool,
+    ) -> None:
+        if not scope_filters_required:
+            return
+        if not filters:
+            raise MissingScopeFilter("Scope filters are required but missing from execution plan")
+
+        allowed_values = {
+            str(scope.user_alias or ""),
+            str(scope.department_id or ""),
+            str(scope.tenant_id or ""),
+        }
+
+        def _value_matches_scope(value: Any) -> bool:
+            if isinstance(value, (list, tuple, set)):
+                return any(str(item) in allowed_values for item in value)
+            return str(value) in allowed_values
+
+        if not any(_value_matches_scope(item.value) for item in filters):
+            raise MissingScopeFilter("Scope filters do not include any validated caller scope values")
+
     def _validate_filter_values(self, filters: list[QueryFilter]) -> None:
         injection_patterns = ["'", '"', ";", "--", "/*", "*/", "xp_", "exec", "drop"]
         for item in filters:
@@ -150,6 +175,7 @@ class BaseConnector(ABC):
         source_alias: str,
         payload: dict[str, Any] | None = None,
         error: str | None = None,
+        critical: bool = False,
     ) -> None:
         payload_hash = None
         if payload:
@@ -178,6 +204,7 @@ class BaseConnector(ABC):
                     },
                 )
             )
-        except Exception:
-            # Connector execution should not fail because audit storage is unavailable.
+        except Exception as exc:
+            if critical:
+                raise ConnectorError("Critical audit persistence failure") from exc
             return

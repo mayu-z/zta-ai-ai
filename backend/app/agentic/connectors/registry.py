@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from app.core.config import get_settings
+
 from .base import BaseConnector, ConnectorCapacityError, ConnectorError, HealthStatus
 
 
@@ -28,12 +30,7 @@ def register_default_connectors() -> None:
             "postgres": PostgresConnector,
             "mysql": MySQLConnector,
             "mariadb": MariaDBConnector,
-            "mssql": MockConnector,
-            "oracle": MockConnector,
             "erpnext": ERPNextConnector,
-            "google_sheets": MockConnector,
-            "google_drive": MockConnector,
-            "odoo": MockConnector,
             "upi_gateway": UPIGatewayConnector,
             "smtp": SMTPConnector,
             "calendar_google": GoogleCalendarConnector,
@@ -89,6 +86,10 @@ class ConnectorPool:
             connector_class = CONNECTOR_REGISTRY.get(source_type)
             if connector_class is None:
                 raise ConnectorError(f"Unknown source_type: {source_type}")
+
+            environment = get_settings().environment.strip().lower()
+            if environment == "production" and source_type in {"mock", "calendar_mock"}:
+                raise ConnectorError(f"Mock source_type '{source_type}' is not allowed in production")
 
             connector = connector_class(tenant_id=tenant_id, config=config)
             await connector.connect()

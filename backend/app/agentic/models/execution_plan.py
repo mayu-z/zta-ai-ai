@@ -37,6 +37,7 @@ class QueryFilter:
 class ReadExecutionPlan:
     plan_id: str
     entity: str
+    action_id: str = ""
     fields: list[str] = field(default_factory=list)
     filters: list[QueryFilter] = field(default_factory=list)
     scope: ScopeFilter = field(
@@ -47,6 +48,7 @@ class ReadExecutionPlan:
     order_by: str | None = None
     limit: int = 100
     offset: int = 0
+    scope_filters_required: bool = False
 
 
 @dataclass(frozen=True)
@@ -55,11 +57,13 @@ class WriteExecutionPlan:
     entity: str
     operation: Literal["INSERT", "UPDATE", "DELETE", "create_event", "send_email", "create_link"]
     payload: dict[str, Any]
+    action_id: str = ""
     filters: list[QueryFilter] = field(default_factory=list)
     scope: ScopeFilter = field(
         default_factory=lambda: ScopeFilter(tenant_id="", user_alias=None, department_id=None)
     )
     allowed_by_action_id: str = ""
+    scope_filters_required: bool = False
 
 
 @dataclass(frozen=True)

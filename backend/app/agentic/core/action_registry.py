@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from uuid import UUID
 
@@ -117,7 +118,7 @@ def _default_actions(tenant_id: UUID) -> list[ActionConfig]:
             trigger_type="user_query",
             required_data_scope=["hr.own", "timetable.own", "org_hierarchy.read"],
             output_type="workflow",
-            write_target="leave_records:INSERT,leave_balance:UPDATE",
+            write_target="leave_records:INSERT",
             requires_confirmation=True,
             human_approval_required=True,
             approval_level="org_hierarchy_configured",
@@ -171,7 +172,7 @@ def _default_actions(tenant_id: UUID) -> list[ActionConfig]:
             trigger_type="user_query",
             required_data_scope=["hr.own", "timetable.own"],
             output_type="workflow",
-            write_target="leave_records:INSERT,leave_balance:UPDATE",
+            write_target="leave_records:INSERT",
             requires_confirmation=True,
             allowed_personas=["faculty", "staff"],
             extra_config={"kind": "leave_balance_apply"},
@@ -196,6 +197,9 @@ class ActionRegistry:
         if cached:
             return ActionConfig.model_validate_json(cached)
 
+        return await asyncio.to_thread(self._get_from_db_sync, action_id, tenant_id, key)
+
+    def _get_from_db_sync(self, action_id: str, tenant_id: UUID, key: str) -> ActionConfig | None:
         db = SessionLocal()
         try:
             row = db.scalar(
@@ -236,6 +240,9 @@ class ActionRegistry:
             db.close()
 
     async def list_actions(self, tenant_id: UUID) -> list[ActionConfig]:
+        return await asyncio.to_thread(self._list_actions_sync, tenant_id)
+
+    def _list_actions_sync(self, tenant_id: UUID) -> list[ActionConfig]:
         db = SessionLocal()
         try:
             rows = db.scalars(
@@ -276,6 +283,9 @@ class ActionRegistry:
             db.close()
 
     async def upsert(self, config: ActionConfig) -> ActionConfig:
+        return await asyncio.to_thread(self._upsert_sync, config)
+
+    def _upsert_sync(self, config: ActionConfig) -> ActionConfig:
         db = SessionLocal()
         try:
             row = db.scalar(
@@ -338,5 +348,8 @@ class ActionRegistry:
                 config.model_dump_json(),
             )
             return config
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()

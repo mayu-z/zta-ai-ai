@@ -7,7 +7,7 @@ import pytest
 
 from app.agentic.connectors.base import ConnectorError
 from app.agentic.connectors.smtp import SMTPConnector
-from app.agentic.models.execution_plan import ReadExecutionPlan, ScopeFilter
+from app.agentic.models.execution_plan import ScopeFilter, WriteExecutionPlan
 
 
 class FakeSMTP:
@@ -27,17 +27,22 @@ async def test_smtp_recipient_guard_blocks_external_domains(monkeypatch) -> None
     connector._connected = True
     connector._smtp = FakeSMTP()
 
-    monkeypatch.setattr(connector, "_resolve_from_address", lambda alias, tenant_id: "faculty@university.edu")
-    monkeypatch.setattr(connector, "_allowed_domains", lambda tenant_id: ["university.edu"])
+    async def resolve_from(alias: str, tenant_id: str) -> str:
+        del alias, tenant_id
+        return "faculty@university.edu"
+
+    async def allowed_domains(tenant_id: str) -> list[str]:
+        del tenant_id
+        return ["university.edu"]
+
+    monkeypatch.setattr(connector, "_resolve_from_address", resolve_from)
+    monkeypatch.setattr(connector, "_allowed_domains", allowed_domains)
     monkeypatch.setattr(connector, "_log_delivery_attempt", lambda **kwargs: None)
 
-    plan = ReadExecutionPlan(
+    plan = WriteExecutionPlan(
         plan_id="smtp-1",
         entity="email",
-        fields=[],
-        filters=[],
-        scope=ScopeFilter(tenant_id=str(connector.tenant_id), user_alias="FAC-1", department_id="CS"),
-        operation="send",
+        operation="send_email",
         payload={
             "from_alias": "FAC-1",
             "to": ["student@university.edu", "outside@gmail.com"],
@@ -46,11 +51,11 @@ async def test_smtp_recipient_guard_blocks_external_domains(monkeypatch) -> None
             "body": "Body",
             "tenant_id": str(connector.tenant_id),
         },
-        limit=1,
+        scope=ScopeFilter(tenant_id=str(connector.tenant_id), user_alias="FAC-1", department_id="CS"),
     )
 
     with pytest.raises(ConnectorError):
-        await connector.execute(plan)
+        await connector.write(plan)
     assert connector._smtp.messages == []
 
 
@@ -75,13 +80,10 @@ async def test_smtp_from_address_is_resolved_and_enforced(monkeypatch) -> None:
     monkeypatch.setattr(connector, "_allowed_domains", allowed_domains)
     monkeypatch.setattr(connector, "_log_delivery_attempt", lambda **kwargs: None)
 
-    plan = ReadExecutionPlan(
+    plan = WriteExecutionPlan(
         plan_id="smtp-2",
         entity="email",
-        fields=[],
-        filters=[],
-        scope=ScopeFilter(tenant_id=str(connector.tenant_id), user_alias="FAC-1", department_id="CS"),
-        operation="send",
+        operation="send_email",
         payload={
             "from_alias": "FAC-1",
             "to": ["student@university.edu"],
@@ -91,9 +93,9 @@ async def test_smtp_from_address_is_resolved_and_enforced(monkeypatch) -> None:
             "tenant_id": str(connector.tenant_id),
             "from": "spoofed@evil.com",
         },
-        limit=1,
+        scope=ScopeFilter(tenant_id=str(connector.tenant_id), user_alias="FAC-1", department_id="CS"),
     )
 
-    await connector.execute(plan)
+    await connector.write(plan)
     assert len(connector._smtp.messages) == 1
     assert connector._smtp.messages[0]["From"] == "faculty@university.edu"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 import json
 import time
@@ -64,6 +65,8 @@ class _CalendarBaseConnector(BaseConnector):
     async def execute(self, plan: ReadExecutionPlan) -> RawResult:
         self._ensure_connected()
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
+        self._validate_filter_values(plan.filters)
 
         operation = str(plan.operation or "free_busy").strip().lower()
         if operation != "free_busy":
@@ -82,7 +85,7 @@ class _CalendarBaseConnector(BaseConnector):
             elapsed = (time.perf_counter() - started) * 1000
             await self._audit_execution(
                 event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                action_id=plan.action_id or plan.plan_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="SUCCESS",
                 fields=["user_alias", "busy_start", "busy_end"],
@@ -101,7 +104,7 @@ class _CalendarBaseConnector(BaseConnector):
             mapped = self._map_error(exc)
             await self._audit_execution(
                 event_type="CONNECTOR_READ",
-                action_id=plan.plan_id,
+                action_id=plan.action_id or plan.plan_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="FAILED",
                 fields=["user_alias", "busy_start", "busy_end"],
@@ -115,6 +118,8 @@ class _CalendarBaseConnector(BaseConnector):
     async def write(self, plan: WriteExecutionPlan) -> WriteResult:
         self._ensure_connected()
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
+        self._validate_filter_values(plan.filters)
 
         started = time.perf_counter()
         try:
@@ -123,7 +128,7 @@ class _CalendarBaseConnector(BaseConnector):
             elapsed = (time.perf_counter() - started) * 1000
             await self._audit_execution(
                 event_type="CONNECTOR_WRITE",
-                action_id=plan.allowed_by_action_id,
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="SUCCESS",
                 fields=list(payload.keys()),
@@ -131,6 +136,7 @@ class _CalendarBaseConnector(BaseConnector):
                 execution_time_ms=elapsed,
                 source_alias=self.provider_name,
                 payload=payload,
+                critical=True,
             )
             return WriteResult(rows_affected=1, generated_id=event_id, execution_time_ms=elapsed)
         except Exception as exc:  # noqa: BLE001
@@ -138,7 +144,7 @@ class _CalendarBaseConnector(BaseConnector):
             mapped = self._map_error(exc)
             await self._audit_execution(
                 event_type="CONNECTOR_WRITE",
-                action_id=plan.allowed_by_action_id,
+                action_id=plan.action_id or plan.allowed_by_action_id,
                 user_alias=plan.scope.user_alias or "unknown",
                 status="FAILED",
                 fields=list(plan.payload.keys()),
@@ -159,6 +165,9 @@ class _CalendarBaseConnector(BaseConnector):
         return token
 
     async def _resolve_user_address(self, alias: str) -> str:
+        return await asyncio.to_thread(self._resolve_user_address_sync, alias)
+
+    def _resolve_user_address_sync(self, alias: str) -> str:
         db = SessionLocal()
         try:
             user = (

@@ -26,6 +26,22 @@ class PolicyEngine:
                 denial_reason="PERMISSION_DENIED: persona is not allowed for this action",
             )
 
+        tenant_claim = str(ctx.jwt_claims.get("tenant_id") or "").strip()
+        if tenant_claim and tenant_claim != str(ctx.tenant_id):
+            return PolicyDecision(
+                allowed=False,
+                denial_reason="PERMISSION_DENIED: tenant claim mismatch",
+            )
+
+        allowed_departments = action.extra_config.get("allowed_departments")
+        if isinstance(allowed_departments, list) and allowed_departments:
+            normalized = {str(item).strip().lower() for item in allowed_departments if str(item).strip()}
+            if normalized and (ctx.department_id or "").strip().lower() not in normalized:
+                return PolicyDecision(
+                    allowed=False,
+                    denial_reason="PERMISSION_DENIED: department is not allowed for this action",
+                )
+
         required_claims = action.extra_config.get("required_jwt_claims", {})
         for key, expected_value in required_claims.items():
             if ctx.jwt_claims.get(key) != expected_value:

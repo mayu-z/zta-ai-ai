@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from app.agentic.models.action_config import ActionConfig
@@ -25,16 +24,14 @@ class ScopeGuard:
         ctx: RequestContext,
         policy_decision: PolicyDecision | None = None,
     ) -> ClaimSet:
-        if self.compiler is not None and hasattr(self.compiler, "fetch_data"):
-            decision = policy_decision or PolicyDecision(allowed=True)
-            return await self.compiler.fetch_data(action=action, ctx=ctx, policy_decision=decision)
+        if self.compiler is None or not hasattr(self.compiler, "fetch_data"):
+            raise ScopeViolation("compiler dependency is required for scoped claim resolution")
 
-        claims = dict(action.extra_config.get("mock_claims", {}))
-        claims.setdefault("tenant_id", str(ctx.tenant_id))
-        claims.setdefault("user_alias", ctx.user_alias)
-        claims.setdefault("department_id", ctx.department_id)
+        decision = policy_decision or PolicyDecision(allowed=True)
+        claim_set = await self.compiler.fetch_data(action=action, ctx=ctx, policy_decision=decision)
+        claims = dict(claim_set.claims)
 
-        if claims.get("tenant_id") != str(ctx.tenant_id):
+        if str(claims.get("tenant_id") or "") != str(ctx.tenant_id):
             raise ScopeViolation("tenant mismatch in claim set")
 
         for scope in action.required_data_scope:
@@ -43,7 +40,6 @@ class ScopeGuard:
                 subject_alias = claims.get("subject_alias") or claims.get("user_alias")
                 if subject_alias and str(subject_alias) != ctx.user_alias:
                     raise ScopeViolation("own scope mismatch")
-                claims["subject_alias"] = ctx.user_alias
 
             if token.endswith("department_scope"):
                 claim_dept = str(claims.get("department_id") or "")
@@ -54,15 +50,4 @@ class ScopeGuard:
         if raw_keys:
             raise ScopeViolation(f"raw identifiers are not permitted in claim set: {', '.join(raw_keys)}")
 
-        classifications: dict[str, str] = dict(action.extra_config.get("field_classifications", {}))
-        for key in claims:
-            classifications.setdefault(key, "GENERAL")
-
-        row_count = int(action.extra_config.get("row_count", 1))
-        return ClaimSet(
-            claims=claims,
-            field_classifications=classifications,
-            source_alias=str(action.extra_config.get("source_alias", "scope_guard")),
-            fetched_at=datetime.utcnow(),
-            row_count=row_count,
-        )
+        return claim_set

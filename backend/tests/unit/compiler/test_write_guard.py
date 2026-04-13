@@ -27,3 +27,13 @@ def test_write_guard_rejects_unknown_operation() -> None:
 
     with pytest.raises(AuthorizationError):
         guard.validate(action_id="a1", write_target="leave_records:TRUNCATE")
+
+
+def test_write_guard_rejects_multi_target_write() -> None:
+    guard = WriteGuard()
+
+    with pytest.raises(AuthorizationError):
+        guard.validate(
+            action_id="leave_balance_apply_v1",
+            write_target="leave_records:INSERT,leave_balance:UPDATE",
+        )

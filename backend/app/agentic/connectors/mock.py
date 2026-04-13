@@ -31,6 +31,7 @@ class MockConnector(BaseConnector):
 
     async def execute(self, plan: ReadExecutionPlan) -> RawResult:
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
         self._validate_filter_values(plan.filters)
 
         started = time.perf_counter()
@@ -50,6 +51,7 @@ class MockConnector(BaseConnector):
 
     async def write(self, plan: WriteExecutionPlan) -> WriteResult:
         self._validate_scope(plan.scope)
+        self._validate_scope_filters(plan.filters, plan.scope, plan.scope_filters_required)
         return WriteResult(rows_affected=1, generated_id="mock-generated-id", execution_time_ms=1.0)
 
     async def health_check(self) -> ConnectorHealth:

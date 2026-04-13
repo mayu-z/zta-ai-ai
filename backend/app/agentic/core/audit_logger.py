@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from sqlalchemy import select
 
 from app.agentic.db_models import AgenticAuditEventModel
@@ -11,6 +13,9 @@ class AuditLogger:
     """Immutable append-only writer for agentic events."""
 
     async def write(self, event: AuditEvent) -> str:
+        return await asyncio.to_thread(self._write_sync, event)
+
+    def _write_sync(self, event: AuditEvent) -> str:
         event_id = ""
         db = SessionLocal()
         try:
@@ -28,6 +33,9 @@ class AuditLogger:
             db.add(row)
             db.commit()
             event_id = row.id
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
         return event_id
@@ -35,6 +43,21 @@ class AuditLogger:
     async def exists_success(
         self,
         *,
+        tenant_id: str,
+        action_id: str,
+        user_alias: str,
+        correlation_key: str,
+    ) -> bool:
+        return await asyncio.to_thread(
+            self._exists_success_sync,
+            tenant_id,
+            action_id,
+            user_alias,
+            correlation_key,
+        )
+
+    def _exists_success_sync(
+        self,
         tenant_id: str,
         action_id: str,
         user_alias: str,
