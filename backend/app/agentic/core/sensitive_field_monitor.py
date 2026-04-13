@@ -170,6 +170,9 @@ class SensitiveFieldMonitor:
             metadata={
                 "query_type": event.query_type,
                 "result_row_count": event.result_row_count,
+                "connector_type": event.connector_type,
+                "source_alias": event.source_alias,
+                "execution_time_ms": event.execution_time_ms,
                 "details": [item.detail for item in pattern_hits],
             },
         )

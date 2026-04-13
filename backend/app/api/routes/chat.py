@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
@@ -74,7 +74,11 @@ def history(scope: ScopeContext = Depends(get_current_scope)) -> list[ChatHistor
     response: list[ChatHistoryItem] = []
     for row in rows:
         created_at = row.get("created_at")
-        parsed = datetime.fromisoformat(created_at) if created_at else datetime.utcnow()
+        parsed = (
+            datetime.fromisoformat(created_at)
+            if created_at
+            else datetime.now(UTC).replace(tzinfo=None)
+        )
         response.append(
             ChatHistoryItem(
                 role=row.get("role", "assistant"),

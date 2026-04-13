@@ -89,7 +89,7 @@ class BaseAgent(ABC):
                 return result
 
             try:
-                claim_set = await self._scope.fetch_scoped(action, ctx)
+                claim_set = await self._scope.fetch_scoped(action, ctx, policy_decision)
             except ScopeViolation as exc:
                 await self._audit.write(
                     AuditEvent(
@@ -122,6 +122,9 @@ class BaseAgent(ABC):
                             data_subject_alias=str(claim_set.claims.get("subject_alias", "own")),
                             result_row_count=claim_set.row_count,
                             query_type=action.action_id,
+                            connector_type=(claim_set.source_alias or "unknown").split(":", 1)[0],
+                            source_alias=claim_set.source_alias,
+                            execution_time_ms=None,
                         )
                     )
                 )

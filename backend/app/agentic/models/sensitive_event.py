@@ -26,6 +26,9 @@ class SensitiveAccessEvent:
     data_subject_alias: str
     result_row_count: int
     query_type: str
+    connector_type: str | None = None
+    source_alias: str | None = None
+    execution_time_ms: float | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 

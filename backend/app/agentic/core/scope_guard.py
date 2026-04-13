@@ -6,6 +6,7 @@ from typing import Any
 
 from app.agentic.models.action_config import ActionConfig
 from app.agentic.models.agent_context import ClaimSet, RequestContext
+from app.agentic.core.policy_engine import PolicyDecision
 
 
 class ScopeViolation(Exception):
@@ -16,7 +17,18 @@ class ScopeViolation(Exception):
 class ScopeGuard:
     """Inject mandatory scope constraints before any connector access."""
 
-    async def fetch_scoped(self, action: ActionConfig, ctx: RequestContext) -> ClaimSet:
+    compiler: Any | None = None
+
+    async def fetch_scoped(
+        self,
+        action: ActionConfig,
+        ctx: RequestContext,
+        policy_decision: PolicyDecision | None = None,
+    ) -> ClaimSet:
+        if self.compiler is not None and hasattr(self.compiler, "fetch_data"):
+            decision = policy_decision or PolicyDecision(allowed=True)
+            return await self.compiler.fetch_data(action=action, ctx=ctx, policy_decision=decision)
+
         claims = dict(action.extra_config.get("mock_claims", {}))
         claims.setdefault("tenant_id", str(ctx.tenant_id))
         claims.setdefault("user_alias", ctx.user_alias)
