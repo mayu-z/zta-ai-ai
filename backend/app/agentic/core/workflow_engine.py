@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -15,6 +15,10 @@ from app.db.session import SessionLocal
 
 class InvalidTransition(Exception):
     pass
+
+
+def _utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class WorkflowEngine:
@@ -74,7 +78,7 @@ class WorkflowEngine:
         ctx: RequestContext,
     ) -> WorkflowState:
         workflow_id = f"wf_{uuid4().hex}"
-        now = datetime.utcnow()
+        now = _utcnow_naive()
         current_step = initial_steps[0].step_name if initial_steps else "DRAFT"
         state = WorkflowState(
             workflow_id=workflow_id,
@@ -151,7 +155,7 @@ class WorkflowEngine:
                 if step.step_name == row.current_step and step.status == "PENDING":
                     step.status = "COMPLETED"
                     step.actor_alias = actor_alias
-                    step.completed_at = datetime.utcnow()
+                    step.completed_at = _utcnow_naive()
                     updated = True
                     break
 
@@ -162,7 +166,7 @@ class WorkflowEngine:
                         step_name=row.current_step,
                         status="COMPLETED",
                         actor_alias=actor_alias,
-                        completed_at=datetime.utcnow(),
+                        completed_at=_utcnow_naive(),
                     )
                 )
 
@@ -186,7 +190,7 @@ class WorkflowEngine:
                 row.status = WorkflowStatus.ACTIVE.value
             row.steps = self._serialize_steps(steps)
             row.workflow_metadata = dict(row.workflow_metadata or {}) | dict(metadata or {})
-            row.updated_at = datetime.utcnow()
+            row.updated_at = _utcnow_naive()
             db.commit()
 
             state = WorkflowState(

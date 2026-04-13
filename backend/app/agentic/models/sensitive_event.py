@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import UUID
+
+
+def _utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class AlertSeverity(str, Enum):
@@ -29,7 +33,7 @@ class SensitiveAccessEvent:
     connector_type: str | None = None
     source_alias: str | None = None
     execution_time_ms: float | None = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow_naive)
 
 
 @dataclass
@@ -41,5 +45,5 @@ class AlertModel:
     severity: AlertSeverity
     patterns: list[str]
     status: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utcnow_naive)
     metadata: dict[str, Any] = field(default_factory=dict)

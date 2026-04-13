@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 import asyncio
 from uuid import uuid4
 
@@ -22,6 +22,10 @@ from app.agentic.models.action_config import ActionConfig
 from app.agentic.models.agent_context import AgentStatus, ClaimSet, IntentClassification, RequestContext
 
 
+def _utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class StaticRegistry:
     def __init__(self, action: ActionConfig):
         self._action = action
@@ -40,7 +44,7 @@ class StaticPolicy:
 class StaticApproval:
     async def evaluate(self, action, claim_set, ctx):
         del action, claim_set
-        return ApprovalDecision(approved=True, approver_alias=ctx.user_alias, timestamp=datetime.utcnow())
+        return ApprovalDecision(approved=True, approver_alias=ctx.user_alias, timestamp=_utcnow_naive())
 
 
 class CaptureMonitor:
@@ -186,7 +190,7 @@ async def test_sensitive_classifications_are_forwarded_from_claimset() -> None:
                 claims={"salary": 1000},
                 field_classifications={"salary": "SENSITIVE"},
                 source_alias="payroll",
-                fetched_at=datetime.utcnow(),
+                fetched_at=_utcnow_naive(),
                 row_count=1,
             )
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -24,6 +24,10 @@ from app.agentic.models.action_config import ActionConfig
 from app.agentic.models.agent_context import IntentClassification, RequestContext
 
 
+def _utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class StaticRegistry:
     def __init__(self, action: ActionConfig):
         self._action = action
@@ -42,7 +46,7 @@ class StaticPolicy:
 class StaticApproval:
     async def evaluate(self, action, claim_set, ctx):
         del action, claim_set
-        return ApprovalDecision(approved=True, approver_alias=ctx.user_alias, timestamp=datetime.utcnow())
+        return ApprovalDecision(approved=True, approver_alias=ctx.user_alias, timestamp=_utcnow_naive())
 
 
 class StaticTenantConfig(TenantConfigService):
