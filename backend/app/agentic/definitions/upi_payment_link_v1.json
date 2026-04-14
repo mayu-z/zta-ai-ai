@@ -1,0 +1,87 @@
+{
+  "agent_id": "upi_payment_link_v1",
+  "display_name": "UPI Payment Link Agent",
+  "version": "1.0.0",
+  "description": "Generate UPI payment links for outstanding fees",
+  "trigger": {
+    "type": "user_query",
+    "config": {}
+  },
+  "intent": {
+    "action_id": "upi_payment_link_v1"
+  },
+  "policy": {
+    "allowed_personas": [
+      "student",
+      "staff",
+      "faculty"
+    ],
+    "required_data_scope": [
+      "fees.own"
+    ]
+  },
+  "steps": [
+    {
+      "node_id": "validate_action",
+      "type": "action",
+      "config": {
+        "action_id": "upi_payment_link_v1"
+      },
+      "output_key": "action_meta"
+    },
+    {
+      "node_id": "fetch_scope",
+      "type": "fetch",
+      "config": {
+        "action_id": "upi_payment_link_v1"
+      },
+      "output_key": "fees_data"
+    },
+    {
+      "node_id": "approval_gate",
+      "type": "approval",
+      "config": {
+        "action_id": "upi_payment_link_v1",
+        "claim_set_key": "fees_data"
+      },
+      "output_key": "approval_result"
+    }
+  ],
+  "edges": [
+    {
+      "from": "START",
+      "to": "validate_action"
+    },
+    {
+      "from": "validate_action",
+      "to": "fetch_scope"
+    },
+    {
+      "from": "fetch_scope",
+      "to": "approval_gate"
+    },
+    {
+      "from": "approval_gate",
+      "to": "END_SUCCESS"
+    }
+  ],
+  "config": {
+    "link_expiry_seconds": 1800
+  },
+  "audit": {
+    "log_fields": [
+      "order_id"
+    ],
+    "hash_fields": [
+      "payment_url"
+    ],
+    "retention_days": 365
+  },
+  "metadata": {
+    "created_at": "2026-04-15",
+    "created_by": "engineering",
+    "tenant_overridable_fields": [
+      "config.link_expiry_seconds"
+    ]
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "agent_id": "email_draft_v1",
+  "display_name": "Email Draft Agent",
+  "version": "1.0.0",
+  "description": "Draft-only email flow",
+  "trigger": {
+    "type": "user_query",
+    "config": {}
+  },
+  "intent": {
+    "action_id": "email_draft_v1"
+  },
+  "policy": {
+    "allowed_personas": [
+      "student",
+      "staff",
+      "faculty"
+    ],
+    "required_data_scope": [
+      "user_profile.own"
+    ]
+  },
+  "steps": [
+    {
+      "node_id": "validate_action",
+      "type": "action",
+      "config": {
+        "action_id": "email_draft_v1"
+      },
+      "output_key": "action_meta"
+    },
+    {
+      "node_id": "fetch_profile",
+      "type": "fetch",
+      "config": {
+        "action_id": "email_draft_v1"
+      },
+      "output_key": "profile_data"
+    },
+    {
+      "node_id": "approval_gate",
+      "type": "approval",
+      "config": {
+        "action_id": "email_draft_v1",
+        "claim_set_key": "profile_data"
+      },
+      "output_key": "approval_result"
+    }
+  ],
+  "edges": [
+    {
+      "from": "START",
+      "to": "validate_action"
+    },
+    {
+      "from": "validate_action",
+      "to": "fetch_profile"
+    },
+    {
+      "from": "fetch_profile",
+      "to": "approval_gate"
+    },
+    {
+      "from": "approval_gate",
+      "to": "END_SUCCESS"
+    }
+  ],
+  "config": {
+    "mode": "draft"
+  },
+  "audit": {
+    "log_fields": [
+      "subject",
+      "recipient_count"
+    ],
+    "hash_fields": [
+      "body"
+    ],
+    "retention_days": 365
+  },
+  "metadata": {
+    "created_at": "2026-04-15",
+    "created_by": "engineering",
+    "tenant_overridable_fields": [
+      "config.mode"
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "agent_id": "result_notification_v1",
+  "display_name": "Result Notification Agent",
+  "version": "1.0.0",
+  "description": "Result summary notification flow",
+  "trigger": {
+    "type": "event",
+    "config": {
+      "watch_entity": "exam_results"
+    }
+  },
+  "intent": {
+    "action_id": "result_notification_v1"
+  },
+  "policy": {
+    "allowed_personas": [
+      "student"
+    ],
+    "required_data_scope": [
+      "results.own",
+      "attendance.own"
+    ]
+  },
+  "steps": [
+    {
+      "node_id": "validate_action",
+      "type": "action",
+      "config": {
+        "action_id": "result_notification_v1"
+      },
+      "output_key": "action_meta"
+    },
+    {
+      "node_id": "fetch_scope",
+      "type": "fetch",
+      "config": {
+        "action_id": "result_notification_v1"
+      },
+      "output_key": "result_data"
+    },
+    {
+      "node_id": "approval_gate",
+      "type": "approval",
+      "config": {
+        "action_id": "result_notification_v1",
+        "claim_set_key": "result_data"
+      },
+      "output_key": "approval_result"
+    }
+  ],
+  "edges": [
+    {
+      "from": "START",
+      "to": "validate_action"
+    },
+    {
+      "from": "validate_action",
+      "to": "fetch_scope"
+    },
+    {
+      "from": "fetch_scope",
+      "to": "approval_gate"
+    },
+    {
+      "from": "approval_gate",
+      "to": "END_SUCCESS"
+    }
+  ],
+  "config": {},
+  "audit": {
+    "log_fields": [
+      "score",
+      "grade"
+    ],
+    "hash_fields": [],
+    "retention_days": 365
+  },
+  "metadata": {
+    "created_at": "2026-04-15",
+    "created_by": "engineering",
+    "tenant_overridable_fields": []
+  }
+}

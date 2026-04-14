@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from enum import Enum
 import re
 from typing import Any
@@ -41,6 +42,7 @@ class FilterOperatorEnum(str, Enum):
 
 class NodeTypeEnum(str, Enum):
     FETCH = "fetch"
+    ACTION = "action"
     CONDITION = "condition"
     LLM = "llm"
     RULE_EVAL = "rule_eval"
@@ -63,6 +65,20 @@ class TriggerTypeEnum(str, Enum):
 class TriggerDefinition(BaseModel):
     type: TriggerTypeEnum
     config: dict[str, Any] = Field(default_factory=dict)
+
+
+class IntentDefinition(BaseModel):
+    action_id: str | None = None
+    classifier_hints: dict[str, Any] = Field(default_factory=dict)
+
+
+class PolicyDefinition(BaseModel):
+    allowed_personas: list[str] = Field(default_factory=list)
+    required_data_scope: list[str] = Field(default_factory=list)
+    requires_confirmation: bool | None = None
+    human_approval_required: bool | None = None
+    approval_level: str | None = None
+    extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class PermissionsDefinition(BaseModel):
@@ -120,7 +136,7 @@ class AuditDefinition(BaseModel):
 
 
 class MetadataDefinition(BaseModel):
-    created_at: str
+    created_at: str = Field(default_factory=lambda: datetime.now(tz=UTC).date().isoformat())
     created_by: str = "engineering"
     tenant_overridable_fields: list[str] = Field(default_factory=list)
     migrated_from: str | None = None
@@ -130,17 +146,19 @@ class AgentDefinition(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     agent_id: str
-    display_name: str
+    display_name: str = ""
     version: str
-    description: str
+    description: str = ""
     trigger: TriggerDefinition
-    permissions: PermissionsDefinition
-    data_scope: DataScopeDefinition
-    nodes: list[NodeDefinition]
-    edges: list[EdgeDefinition]
+    intent: IntentDefinition = Field(default_factory=IntentDefinition)
+    policy: PolicyDefinition = Field(default_factory=PolicyDefinition)
+    permissions: PermissionsDefinition = Field(default_factory=lambda: PermissionsDefinition(allowed_personas=[]))
+    data_scope: DataScopeDefinition = Field(default_factory=lambda: DataScopeDefinition(required=[]))
+    nodes: list[NodeDefinition] = Field(default_factory=list, alias="steps")
+    edges: list[EdgeDefinition] = Field(default_factory=list)
     config: dict[str, Any] = Field(default_factory=dict)
-    audit: AuditDefinition
-    metadata: MetadataDefinition
+    audit: AuditDefinition = Field(default_factory=AuditDefinition)
+    metadata: MetadataDefinition = Field(default_factory=MetadataDefinition)
 
     @field_validator("nodes")
     @classmethod
@@ -172,6 +190,32 @@ class AgentDefinition(BaseModel):
 
     @model_validator(mode="after")
     def validate_graph(self) -> "AgentDefinition":
+        # If edges are omitted, treat steps as an implicit linear flow.
+        if not self.edges and self.nodes:
+            generated: list[EdgeDefinition] = []
+            generated.append(EdgeDefinition(source="START", target=self.nodes[0].node_id))
+            for idx in range(0, len(self.nodes) - 1):
+                generated.append(
+                    EdgeDefinition(
+                        source=self.nodes[idx].node_id,
+                        target=self.nodes[idx + 1].node_id,
+                    )
+                )
+            generated.append(EdgeDefinition(source=self.nodes[-1].node_id, target="END_SUCCESS"))
+            self.edges = generated
+
+        # Merge policy shortcuts into compatibility fields.
+        if self.policy.allowed_personas and not self.permissions.allowed_personas:
+            self.permissions.allowed_personas = list(self.policy.allowed_personas)
+        if self.policy.required_data_scope and not self.data_scope.required:
+            self.data_scope.required = list(self.policy.required_data_scope)
+        if self.policy.requires_confirmation is not None:
+            self.permissions.requires_confirmation = bool(self.policy.requires_confirmation)
+        if self.policy.human_approval_required is not None:
+            self.permissions.human_approval_required = bool(self.policy.human_approval_required)
+        if self.policy.approval_level:
+            self.permissions.approval_level = self.policy.approval_level
+
         adjacency: dict[str, list[str]] = {}
         for edge in self.edges:
             adjacency.setdefault(edge.source, []).append(edge.target)
@@ -218,6 +262,10 @@ class AgentDefinition(BaseModel):
                 raise ValueError("Circular graph references are not allowed")
 
         return self
+
+    @property
+    def steps(self) -> list[NodeDefinition]:
+        return self.nodes
 
     def get_node(self, node_id: str) -> NodeDefinition | None:
         return next((node for node in self.nodes if node.node_id == node_id), None)

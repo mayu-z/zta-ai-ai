@@ -5,17 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-from app.agentic.agents.bulk_notification import BulkNotificationAgent
-from app.agentic.agents.email_draft import EmailDraftAgent
-from app.agentic.agents.email_send import EmailSendAgent
-from app.agentic.agents.fee_reminder import FeeReminderAgent
-from app.agentic.agents.leave_approval import LeaveApprovalAgent
-from app.agentic.agents.leave_balance import LeaveBalanceAgent
-from app.agentic.agents.meeting_scheduler import MeetingSchedulerAgent
-from app.agentic.agents.payroll_query import PayrollQueryAgent
-from app.agentic.agents.refund import RefundAgent
-from app.agentic.agents.result_notification import ResultNotificationAgent
-from app.agentic.agents.upi_payment import UPIPaymentAgent
 from app.agentic.compiler.execution_planner import ExecutionPlanner
 from app.agentic.compiler.scope_injector import ScopeInjector
 from app.agentic.compiler.write_guard import WriteGuard
@@ -31,7 +20,10 @@ from app.agentic.core.notification_dispatcher import NotificationDispatcher
 from app.agentic.core.policy_engine import PolicyEngine
 from app.agentic.core.scope_guard import ScopeGuard
 from app.agentic.core.sensitive_field_monitor import SensitiveFieldMonitor
+from app.agentic.engine.agent_runner import AgentRunner
+from app.agentic.engine.node_executor import NodeExecutor
 from app.agentic.models.agent_context import AgentStatus, RequestContext
+from app.agentic.registry.agent_registry import AgentDefinitionLoader
 from app.core.exceptions import AuthorizationError
 from app.schemas.pipeline import ScopeContext
 
@@ -66,6 +58,20 @@ class AgenticRuntimeBridge:
         self._monitor = SensitiveFieldMonitor()
         self._notifications = NotificationDispatcher()
         self._approval = ApprovalLayer()
+        self._definition_loader = AgentDefinitionLoader()
+        self._node_executor = NodeExecutor(
+            action_registry=self._registry,
+            policy_engine=self._policy,
+            scope_guard=self._scope,
+            approval_layer=self._approval,
+        )
+        self._runner = AgentRunner(
+            definition_loader=self._definition_loader,
+            node_executor=self._node_executor,
+            action_registry=self._registry,
+            policy_engine=self._policy,
+            audit_logger=self._audit_logger,
+        )
 
     @staticmethod
     def _run_async(coro: Any) -> Any:
@@ -91,37 +97,6 @@ class AgenticRuntimeBridge:
             },
         )
 
-    def _build_agent(self, action_id: str):
-        common_kwargs = {
-            "action_registry": self._registry,
-            "policy_engine": self._policy,
-            "scope_guard": self._scope,
-            "compiler": self._compiler,
-            "audit_logger": self._audit_logger,
-            "sensitive_monitor": self._monitor,
-            "notification_dispatcher": self._notifications,
-            "approval_layer": self._approval,
-        }
-
-        mapping = {
-            "result_notification_v1": ResultNotificationAgent,
-            "fee_reminder_v1": FeeReminderAgent,
-            "upi_payment_link_v1": UPIPaymentAgent,
-            "refund_request_v1": RefundAgent,
-            "email_draft_v1": EmailDraftAgent,
-            "email_send_v1": EmailSendAgent,
-            "bulk_notification_v1": BulkNotificationAgent,
-            "leave_approval_v1": LeaveApprovalAgent,
-            "meeting_scheduler_v1": MeetingSchedulerAgent,
-            "payroll_query_v1": PayrollQueryAgent,
-            "leave_balance_check_v1": LeaveBalanceAgent,
-            "leave_balance_apply_v1": LeaveBalanceAgent,
-        }
-        agent_cls = mapping.get(action_id)
-        if agent_cls is None:
-            return None
-        return agent_cls(**common_kwargs)
-
     def maybe_execute(self, *, query_text: str, scope: ScopeContext) -> AgenticExecutionOutcome | None:
         classification = self._run_async(self._classifier.classify(query_text))
         if not classification.is_agentic or not classification.action_id:
@@ -131,12 +106,14 @@ class AgenticRuntimeBridge:
         if action is None or not action.is_enabled:
             return None
 
-        agent = self._build_agent(action.action_id)
-        if agent is None:
-            return None
-
         ctx = self._build_request_context(scope)
-        result = self._run_async(agent.run(classification, ctx))
+        result = self._run_async(
+            self._runner.run(
+                agent_id=action.action_id,
+                intent=classification,
+                ctx=ctx,
+            )
+        )
         domains = self._action_domains(action.required_data_scope)
 
         if result.status == AgentStatus.SUCCESS:
@@ -155,7 +132,7 @@ class AgenticRuntimeBridge:
                 code=result.status.value,
             )
 
-        if result.status == AgentStatus.CANCELLED:
+        if result.status in {AgentStatus.CANCELLED, AgentStatus.PENDING_APPROVAL}:
             return AgenticExecutionOutcome(
                 response_text=result.message or "Action requires confirmation.",
                 source="agentic",

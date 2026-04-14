@@ -1,0 +1,84 @@
+{
+  "agent_id": "meeting_scheduler_v1",
+  "display_name": "Meeting Scheduler Agent",
+  "version": "1.0.0",
+  "description": "Meeting slot and calendar scheduling flow",
+  "trigger": {
+    "type": "user_query",
+    "config": {}
+  },
+  "intent": {
+    "action_id": "meeting_scheduler_v1"
+  },
+  "policy": {
+    "allowed_personas": [
+      "faculty",
+      "staff",
+      "dept_head",
+      "admin"
+    ],
+    "required_data_scope": [
+      "calendar.own.free_busy",
+      "calendar.participants.free_busy"
+    ],
+    "requires_confirmation": true
+  },
+  "steps": [
+    {
+      "node_id": "validate_action",
+      "type": "action",
+      "config": {
+        "action_id": "meeting_scheduler_v1"
+      },
+      "output_key": "action_meta"
+    },
+    {
+      "node_id": "fetch_scope",
+      "type": "fetch",
+      "config": {
+        "action_id": "meeting_scheduler_v1"
+      },
+      "output_key": "calendar_data"
+    },
+    {
+      "node_id": "approval_gate",
+      "type": "approval",
+      "config": {
+        "action_id": "meeting_scheduler_v1",
+        "claim_set_key": "calendar_data"
+      },
+      "output_key": "approval_result"
+    }
+  ],
+  "edges": [
+    {
+      "from": "START",
+      "to": "validate_action"
+    },
+    {
+      "from": "validate_action",
+      "to": "fetch_scope"
+    },
+    {
+      "from": "fetch_scope",
+      "to": "approval_gate"
+    },
+    {
+      "from": "approval_gate",
+      "to": "END_SUCCESS"
+    }
+  ],
+  "config": {},
+  "audit": {
+    "log_fields": [
+      "attendee_count"
+    ],
+    "hash_fields": [],
+    "retention_days": 365
+  },
+  "metadata": {
+    "created_at": "2026-04-15",
+    "created_by": "engineering",
+    "tenant_overridable_fields": []
+  }
+}
