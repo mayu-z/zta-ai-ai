@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import logging
 from datetime import UTC, datetime
 
@@ -20,8 +21,6 @@ from app.db.init_db import create_all_tables
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=settings.app_name, version="1.0.0")
-
 cors_allowed_origins = [
     "http://172.31.42.23:8080",
     "http://localhost:8080",
@@ -29,15 +28,6 @@ cors_allowed_origins = [
     "http://3.25.168.174:8080",
     "http://3.25.168.174",
 ]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 def enforce_startup_security() -> None:
     auth_provider = settings.auth_provider.strip().lower()
@@ -130,8 +120,7 @@ def enforce_startup_security() -> None:
     )
 
 
-@app.on_event("startup")
-def on_startup() -> None:
+def run_startup_checks() -> None:
     enforce_startup_security()
     create_all_tables()
 
@@ -149,6 +138,23 @@ def on_startup() -> None:
         if settings.environment == "production":
             raise RuntimeError("Redis health check failed during startup") from exc
         logger.exception("Redis health check failed during startup")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    run_startup_checks()
+    yield
+
+
+app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(ZTAError)

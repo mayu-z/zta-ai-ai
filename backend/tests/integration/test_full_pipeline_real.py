@@ -6,7 +6,6 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import create_engine, text
 
-from app.agentic.agents.fee_reminder import FeeReminderAgent
 from app.agentic.compiler.execution_planner import ExecutionPlanner
 from app.agentic.compiler.scope_injector import ScopeInjector
 from app.agentic.compiler.write_guard import WriteGuard
@@ -16,12 +15,13 @@ from app.agentic.connectors.router import ConnectorRouter, SourceConfig, TenantC
 from app.agentic.core.approval_layer import ApprovalDecision
 from app.agentic.core.audit_logger import AuditLogger
 from app.agentic.core.compiler_interface import CompilerInterface
-from app.agentic.core.notification_dispatcher import NotificationDispatcher
 from app.agentic.core.policy_engine import PolicyDecision
 from app.agentic.core.scope_guard import ScopeGuard
-from app.agentic.core.sensitive_field_monitor import SensitiveFieldMonitor
+from app.agentic.engine.agent_runner import AgentRunner
+from app.agentic.engine.node_executor import NodeExecutor
 from app.agentic.models.action_config import ActionConfig
 from app.agentic.models.agent_context import IntentClassification, RequestContext
+from app.agentic.models.agent_definition import AgentDefinition
 
 
 def _utcnow_naive() -> datetime:
@@ -47,6 +47,17 @@ class StaticApproval:
     async def evaluate(self, action, claim_set, ctx):
         del action, claim_set
         return ApprovalDecision(approved=True, approver_alias=ctx.user_alias, timestamp=_utcnow_naive())
+
+
+class StaticDefinitionLoader:
+    def __init__(self, definition: AgentDefinition):
+        self._definition = definition
+
+    async def load(self, agent_id, tenant_id):
+        del tenant_id
+        if agent_id == self._definition.agent_id:
+            return self._definition
+        return None
 
 
 class StaticTenantConfig(TenantConfigService):
@@ -94,6 +105,43 @@ def _seed(sync_url: str, tenant_id: str) -> None:
         )
 
 
+def _definition(action_id: str) -> AgentDefinition:
+    return AgentDefinition.model_validate(
+        {
+            "agent_id": action_id,
+            "display_name": "Fee Reminder",
+            "version": "1.0.0",
+            "description": "dynamic full pipeline test",
+            "trigger": {"type": "user_query"},
+            "intent": {"action_id": action_id},
+            "policy": {"allowed_personas": ["student"], "required_data_scope": ["fees.own"]},
+            "steps": [
+                {"node_id": "validate_action", "type": "action", "config": {"action_id": action_id}},
+                {
+                    "node_id": "fetch_fees",
+                    "type": "fetch",
+                    "config": {"action_id": action_id},
+                    "output_key": "fees_data",
+                },
+                {
+                    "node_id": "verify_scope",
+                    "type": "condition",
+                    "config": {
+                        "expression": "fees_data.row_count == 1 and fees_data.claims.outstanding_balance == 5000"
+                    },
+                },
+            ],
+            "edges": [
+                {"from": "START", "to": "validate_action"},
+                {"from": "validate_action", "to": "fetch_fees"},
+                {"from": "fetch_fees", "to": "verify_scope"},
+                {"from": "verify_scope", "to": "END_SUCCESS", "condition": "true"},
+                {"from": "verify_scope", "to": "END_FAILED", "condition": "false"},
+            ],
+        }
+    )
+
+
 @pytest.mark.asyncio
 async def test_full_pipeline_with_real_db() -> None:
     tc = pytest.importorskip("testcontainers.postgres")
@@ -135,26 +183,30 @@ async def test_full_pipeline_with_real_db() -> None:
             requires_confirmation=False,
         )
 
-        agent = FeeReminderAgent(
-            action_registry=StaticRegistry(action),
+        registry = StaticRegistry(action)
+        runner = AgentRunner(
+            definition_loader=StaticDefinitionLoader(_definition(action.action_id)),
+            node_executor=NodeExecutor(
+                action_registry=registry,
+                policy_engine=StaticPolicy(),
+                scope_guard=ScopeGuard(compiler=compiler),
+                approval_layer=StaticApproval(),
+            ),
+            action_registry=registry,
             policy_engine=StaticPolicy(),
-            scope_guard=ScopeGuard(compiler=compiler),
-            compiler=compiler,
             audit_logger=AuditLogger(),
-            sensitive_monitor=SensitiveFieldMonitor(),
-            notification_dispatcher=NotificationDispatcher(),
-            approval_layer=StaticApproval(),
         )
 
-        result = await agent.run(
-            IntentClassification(
+        result = await runner.run(
+            agent_id=action.action_id,
+            intent=IntentClassification(
                 is_agentic=True,
                 action_id="fee_reminder_v1",
                 confidence=0.99,
                 extracted_entities={},
                 raw_intent_text="fee reminder",
             ),
-            RequestContext(
+            ctx=RequestContext(
                 tenant_id=tenant_id,
                 user_alias="STU-001",
                 session_id="sid-1",
@@ -165,5 +217,5 @@ async def test_full_pipeline_with_real_db() -> None:
         )
 
         assert result.status.value == "SUCCESS"
-        assert "5000" in result.message
-        assert "9000" not in result.message
+        assert result.data is not None
+        assert len(result.data.get("steps_executed", [])) == 3

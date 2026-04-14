@@ -1,5 +1,5 @@
 ﻿from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -136,6 +136,15 @@ class ActionTemplateOverrideUpsertRequest(BaseModel):
     approver_role: str | None = None
     sla_hours: int | None = Field(default=None, ge=1, le=168)
     execution_steps: list[str] | None = None
+
+
+class AgentDefinitionOverrideUpsertRequest(BaseModel):
+    override: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentDefinitionCacheInvalidationRequest(BaseModel):
+    agent_ids: list[str] | None = None
+    include_action_cache: bool = True
 
 
 class ActionApprovalRequest(BaseModel):

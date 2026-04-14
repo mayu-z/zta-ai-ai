@@ -36,6 +36,8 @@ from app.interpreter.onboarding_validator import validate_interpreter_onboarding
 from app.db.session import get_db
 from app.schemas.admin import (
     ActionApprovalRequest,
+    AgentDefinitionCacheInvalidationRequest,
+    AgentDefinitionOverrideUpsertRequest,
     ActionExecuteRequest,
     ActionRollbackRequest,
     ActionTemplateOverrideUpsertRequest,
@@ -68,6 +70,7 @@ from app.services.compliance_attestation_service import compliance_attestation_s
 from app.services.compliance_operations import compliance_operations_service
 from app.services.compliance_retention_service import compliance_retention_service
 from app.services.control_plane_graph_service import control_plane_graph_service
+from app.services.agent_definition_override_service import agent_definition_override_service
 from app.services.system_admin_service import system_admin_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -1155,6 +1158,74 @@ def delete_action_template_override(
         db=db,
         tenant_id=scope.tenant_id,
         action_id=action_id,
+    )
+
+
+@router.get("/agentic/definitions")
+def list_agentic_definitions(
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
+    return {
+        "definitions": agent_definition_override_service.list_definitions(
+            db=db,
+            tenant_id=scope.tenant_id,
+        ),
+        "requested_by": scope.user_id,
+    }
+
+
+@router.get("/agentic/definitions/{agent_id}")
+def get_agentic_definition(
+    agent_id: str,
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
+    return agent_definition_override_service.get_definition(
+        db=db,
+        tenant_id=scope.tenant_id,
+        agent_id=agent_id,
+    )
+
+
+@router.put("/agentic/definitions/{agent_id}/override")
+def upsert_agentic_definition_override(
+    agent_id: str,
+    payload: AgentDefinitionOverrideUpsertRequest,
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
+    return agent_definition_override_service.upsert_override(
+        db=db,
+        tenant_id=scope.tenant_id,
+        agent_id=agent_id,
+        override_payload=payload.override,
+        updated_by=scope.user_id,
+    )
+
+
+@router.delete("/agentic/definitions/{agent_id}/override")
+def delete_agentic_definition_override(
+    agent_id: str,
+    scope: ScopeContext = Depends(require_it_head),
+    db: Session = Depends(get_db),
+):
+    return agent_definition_override_service.delete_override(
+        db=db,
+        tenant_id=scope.tenant_id,
+        agent_id=agent_id,
+    )
+
+
+@router.post("/agentic/definitions/cache/invalidate")
+def invalidate_agentic_definition_cache(
+    payload: AgentDefinitionCacheInvalidationRequest,
+    scope: ScopeContext = Depends(require_it_head),
+):
+    return agent_definition_override_service.invalidate_cache(
+        tenant_id=scope.tenant_id,
+        agent_ids=payload.agent_ids,
+        include_action_cache=payload.include_action_cache,
     )
 
 
