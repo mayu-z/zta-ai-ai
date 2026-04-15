@@ -59,6 +59,7 @@ class RegistryService:
 
         merged = {
             "agent_definition_id": str(definition.id),
+            "template_id": runtime_definition["agent_key"],
             "agent_key": runtime_definition["agent_key"],
             "name": runtime_definition["name"],
             "description": runtime_definition["description"],
@@ -66,6 +67,8 @@ class RegistryService:
             "domain": runtime_definition["domain"],
             "trigger_type": runtime_definition["trigger_type"],
             "trigger_config": runtime_definition["trigger_config"],
+            "trigger_config_schema": runtime_definition["trigger_config_schema"],
+            "required_data_scope": runtime_definition["required_data_scope"],
             "input_schema": runtime_definition["input_schema"],
             "output_schema": runtime_definition["output_schema"],
             "action_steps": runtime_definition["action_steps"],
@@ -73,18 +76,30 @@ class RegistryService:
             "constraints": self._merge_constraints(
                 runtime_definition["constraints"], runtime_cfg["custom_constraints"]
             ),
+            "output_type": runtime_definition["output_type"],
             "requires_confirmation": runtime_definition["requires_confirmation"],
+            "approval_level": runtime_definition["approval_level"],
+            "allowed_personas": runtime_definition["allowed_personas"],
             "confirmation_prompt": runtime_definition["confirmation_prompt"],
             "chain_to": runtime_definition["chain_to"],
             "allowed_output_channels": runtime_definition["allowed_output_channels"],
+            "handler_class": runtime_definition["handler_class"],
+            "is_side_effect": runtime_definition["is_side_effect"],
+            "risk_level": runtime_definition["risk_level"],
             "is_sensitive_monitor": runtime_definition["is_sensitive_monitor"],
+            "is_active": runtime_definition["is_active"],
             "status": runtime_definition["status"],
             "risk_rank": runtime_definition["risk_rank"],
             "tenant_config_id": str(tenant_cfg.id),
+            "instance_id": str(tenant_cfg.id),
             "tenant_id": str(tenant_cfg.tenant_id),
             "custom_templates": runtime_cfg["custom_templates"],
             "approval_config": runtime_cfg["approval_config"],
             "notification_channels": runtime_cfg["notification_channels"],
+            "config": runtime_cfg["config"],
+            "created_by": tenant_cfg.created_by,
+            "last_triggered_at": tenant_cfg.last_triggered_at,
+            "trigger_count": tenant_cfg.trigger_count,
             "definition_version_id": (
                 str(tenant_cfg.active_definition_version_id)
                 if tenant_cfg.active_definition_version_id
@@ -111,7 +126,9 @@ class RegistryService:
                 definition=definition,
                 active_definition_version_id=tenant_cfg.active_definition_version_id,
             )
-            allowed = runtime_definition["rbac_permissions"].get("allowed_personas", [])
+            allowed = runtime_definition["allowed_personas"] or runtime_definition[
+                "rbac_permissions"
+            ].get("allowed_personas", [])
             if allowed and persona_type not in allowed:
                 continue
             enabled.append(
@@ -121,6 +138,8 @@ class RegistryService:
                     "description": runtime_definition["description"],
                     "keywords": runtime_definition["trigger_config"].get("keywords", []),
                     "risk_rank": runtime_definition["risk_rank"],
+                    "handler_class": runtime_definition["handler_class"],
+                    "output_type": runtime_definition["output_type"],
                     "requires_confirmation": runtime_definition["requires_confirmation"],
                     "tenant_config_id": str(tenant_cfg.id),
                 }
@@ -135,6 +154,8 @@ class RegistryService:
                 "name": row.name,
                 "description": row.description,
                 "version": row.version,
+                "handler_class": row.handler_class,
+                "is_active": row.is_active,
                 "status": row.status.value,
             }
             for row in rows
@@ -157,6 +178,7 @@ class RegistryService:
 
         return {
             "id": str(cfg.id),
+            "instance_id": str(cfg.id),
             "tenant_id": str(cfg.tenant_id),
             "agent_definition_id": str(cfg.agent_definition_id),
             "is_enabled": cfg.is_enabled,
@@ -164,6 +186,10 @@ class RegistryService:
             "custom_constraints": cfg.custom_constraints,
             "approval_config": cfg.approval_config,
             "notification_channels": cfg.notification_channels,
+            "config": cfg.config,
+            "created_by": cfg.created_by,
+            "last_triggered_at": cfg.last_triggered_at,
+            "trigger_count": cfg.trigger_count,
             "edit_version": cfg.edit_version,
         }
 
@@ -196,6 +222,7 @@ class RegistryService:
             return {
                 "tenant_id": str(cfg.tenant_id),
                 "agent_id": agent_id,
+                "instance_id": str(cfg.id),
                 "is_enabled": cfg.is_enabled,
             }
         except Exception:
@@ -213,6 +240,7 @@ class RegistryService:
         return [
             {
                 "tenant_id": str(row.tenant_id),
+                "instance_id": str(row.id),
                 "is_enabled": row.is_enabled,
                 "edit_version": row.edit_version,
             }
@@ -286,6 +314,8 @@ class RegistryService:
                 snapshot=snapshot,
                 created_by=actor_uuid,
             )
+            if actor_user_id:
+                tenant_cfg.created_by = actor_user_id
             tenant_cfg.edit_version += 1
 
             self.db.commit()
@@ -534,21 +564,62 @@ class RegistryService:
                     domain=contract.domain,
                     trigger_type=TriggerType(contract.trigger_type),
                     trigger_config=contract.trigger_config,
+                    trigger_config_schema=contract.trigger_config_schema,
+                    required_data_scope=contract.required_data_scope,
                     input_schema=contract.input_schema,
                     output_schema=contract.output_schema,
                     action_steps=[step.model_dump() for step in contract.action_steps],
-                    rbac_permissions=contract.rbac_permissions,
+                    rbac_permissions=self._normalize_rbac(
+                        contract.rbac_permissions, contract.allowed_personas
+                    ),
                     constraints=contract.constraints,
+                    output_type=contract.output_type,
                     requires_confirmation=contract.requires_confirmation,
+                    approval_level=contract.approval_level,
+                    allowed_personas=contract.allowed_personas,
                     confirmation_prompt=contract.confirmation_prompt,
                     chain_to=contract.chain_to,
                     allowed_output_channels=contract.allowed_output_channels,
+                    handler_class=contract.handler_class,
+                    is_side_effect=contract.is_side_effect,
+                    risk_level=contract.risk_level,
                     is_sensitive_monitor=contract.is_sensitive_monitor,
+                    is_active=contract.is_active,
                     status=AgentDefinitionStatus(contract.status),
                     risk_rank=contract.risk_rank,
                 )
                 self.db.add(definition)
                 self.db.flush()
+            else:
+                definition.name = contract.name
+                definition.description = contract.description
+                definition.version = contract.version
+                definition.domain = contract.domain
+                definition.trigger_type = TriggerType(contract.trigger_type)
+                definition.trigger_config = contract.trigger_config
+                definition.trigger_config_schema = contract.trigger_config_schema
+                definition.required_data_scope = contract.required_data_scope
+                definition.input_schema = contract.input_schema
+                definition.output_schema = contract.output_schema
+                definition.action_steps = [step.model_dump() for step in contract.action_steps]
+                definition.rbac_permissions = self._normalize_rbac(
+                    contract.rbac_permissions, contract.allowed_personas
+                )
+                definition.constraints = contract.constraints
+                definition.output_type = contract.output_type
+                definition.requires_confirmation = contract.requires_confirmation
+                definition.approval_level = contract.approval_level
+                definition.allowed_personas = contract.allowed_personas
+                definition.confirmation_prompt = contract.confirmation_prompt
+                definition.chain_to = contract.chain_to
+                definition.allowed_output_channels = contract.allowed_output_channels
+                definition.handler_class = contract.handler_class
+                definition.is_side_effect = contract.is_side_effect
+                definition.risk_level = contract.risk_level
+                definition.is_sensitive_monitor = contract.is_sensitive_monitor
+                definition.is_active = contract.is_active
+                definition.status = AgentDefinitionStatus(contract.status)
+                definition.risk_rank = contract.risk_rank
 
             version_row = self._create_definition_version_row(
                 agent_definition_id=definition.id,
@@ -750,16 +821,25 @@ class RegistryService:
             "domain": definition.domain,
             "trigger_type": definition.trigger_type.value,
             "trigger_config": definition.trigger_config,
+            "trigger_config_schema": definition.trigger_config_schema,
+            "required_data_scope": definition.required_data_scope,
             "input_schema": definition.input_schema,
             "output_schema": definition.output_schema,
             "action_steps": definition.action_steps,
             "rbac_permissions": definition.rbac_permissions,
             "constraints": definition.constraints,
+            "output_type": definition.output_type,
             "requires_confirmation": definition.requires_confirmation,
+            "approval_level": definition.approval_level,
+            "allowed_personas": definition.allowed_personas,
             "confirmation_prompt": definition.confirmation_prompt,
             "chain_to": definition.chain_to,
             "allowed_output_channels": definition.allowed_output_channels,
+            "handler_class": definition.handler_class,
+            "is_side_effect": definition.is_side_effect,
+            "risk_level": definition.risk_level,
             "is_sensitive_monitor": definition.is_sensitive_monitor,
+            "is_active": definition.is_active,
             "status": definition.status.value,
             "risk_rank": definition.risk_rank,
         }
@@ -781,14 +861,23 @@ class RegistryService:
                 "domain": snapshot.get("domain", payload["domain"]),
                 "trigger_type": snapshot.get("trigger_type", payload["trigger_type"]),
                 "trigger_config": snapshot.get("trigger_config", payload["trigger_config"]),
+                "trigger_config_schema": snapshot.get(
+                    "trigger_config_schema", payload["trigger_config_schema"]
+                ),
+                "required_data_scope": snapshot.get(
+                    "required_data_scope", payload["required_data_scope"]
+                ),
                 "input_schema": snapshot.get("input_schema", payload["input_schema"]),
                 "output_schema": snapshot.get("output_schema", payload["output_schema"]),
                 "action_steps": snapshot.get("action_steps", payload["action_steps"]),
                 "rbac_permissions": snapshot.get("rbac_permissions", payload["rbac_permissions"]),
                 "constraints": snapshot.get("constraints", payload["constraints"]),
+                "output_type": snapshot.get("output_type", payload["output_type"]),
                 "requires_confirmation": snapshot.get(
                     "requires_confirmation", payload["requires_confirmation"]
                 ),
+                "approval_level": snapshot.get("approval_level", payload["approval_level"]),
+                "allowed_personas": snapshot.get("allowed_personas", payload["allowed_personas"]),
                 "confirmation_prompt": snapshot.get(
                     "confirmation_prompt", payload["confirmation_prompt"]
                 ),
@@ -796,9 +885,13 @@ class RegistryService:
                 "allowed_output_channels": snapshot.get(
                     "allowed_output_channels", payload["allowed_output_channels"]
                 ),
+                "handler_class": snapshot.get("handler_class", payload["handler_class"]),
+                "is_side_effect": snapshot.get("is_side_effect", payload["is_side_effect"]),
+                "risk_level": snapshot.get("risk_level", payload["risk_level"]),
                 "is_sensitive_monitor": snapshot.get(
                     "is_sensitive_monitor", payload["is_sensitive_monitor"]
                 ),
+                "is_active": snapshot.get("is_active", payload["is_active"]),
                 "status": snapshot.get("status", payload["status"]),
                 "risk_rank": snapshot.get("risk_rank", payload["risk_rank"]),
             }
@@ -812,6 +905,7 @@ class RegistryService:
             "custom_constraints": tenant_cfg.custom_constraints,
             "approval_config": tenant_cfg.approval_config,
             "notification_channels": tenant_cfg.notification_channels,
+            "config": tenant_cfg.config,
         }
 
         if tenant_cfg.active_config_version_id is None:
@@ -833,6 +927,7 @@ class RegistryService:
                 "notification_channels": snapshot.get(
                     "notification_channels", payload["notification_channels"]
                 ),
+                "config": snapshot.get("config", payload["config"]),
             }
         )
         return payload
@@ -845,6 +940,7 @@ class RegistryService:
         tenant_cfg.notification_channels = snapshot.get(
             "notification_channels", tenant_cfg.notification_channels
         )
+        tenant_cfg.config = snapshot.get("config", tenant_cfg.config)
 
     def _create_definition_version_row(
         self,
@@ -904,6 +1000,13 @@ class RegistryService:
     def _snapshot_hash(payload: dict[str, Any]) -> str:
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _normalize_rbac(rbac: dict[str, Any], allowed_personas: list[str]) -> dict[str, Any]:
+        merged = dict(rbac or {})
+        if allowed_personas:
+            merged["allowed_personas"] = allowed_personas
+        return merged
 
     def _invalidate_tenant_cache(self, tenant_id: str) -> None:
         if self.cache is None:

@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+app/__init__.py
+app/main.py
+tests/test_intent_resolver.py
+tests/test_state_machine.py
+zta_agentic_service.egg-info/PKG-INFO
+zta_agentic_service.egg-info/SOURCES.txt
+zta_agentic_service.egg-info/dependency_links.txt
+zta_agentic_service.egg-info/requires.txt
+zta_agentic_service.egg-info/top_level.txt

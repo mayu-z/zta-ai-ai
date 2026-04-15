@@ -17,16 +17,25 @@ class AgentDefinitionContract(BaseModel):
     domain: str
     trigger_type: str
     trigger_config: dict = Field(default_factory=dict)
+    trigger_config_schema: dict = Field(default_factory=dict)
+    required_data_scope: list[str] = Field(default_factory=list)
     input_schema: dict = Field(default_factory=dict)
     output_schema: dict = Field(default_factory=dict)
     action_steps: list[ActionStepConfig] = Field(default_factory=list)
     rbac_permissions: dict = Field(default_factory=dict)
     constraints: dict = Field(default_factory=dict)
+    output_type: str = "read"
     requires_confirmation: bool = False
+    approval_level: str = "user"
+    allowed_personas: list[str] = Field(default_factory=list)
     confirmation_prompt: str | None = None
     chain_to: list[str] = Field(default_factory=list)
     allowed_output_channels: list[str] = Field(default_factory=list)
+    handler_class: str = ""
+    is_side_effect: bool = False
+    risk_level: str = "low"
     is_sensitive_monitor: bool = False
+    is_active: bool = True
     status: str = "beta"
     risk_rank: int = Field(default=50, ge=0, le=100)
 
@@ -37,6 +46,7 @@ class TenantAgentConfigPatch(BaseModel):
     custom_constraints: dict | None = None
     approval_config: dict | None = None
     notification_channels: dict | None = None
+    config: dict | None = None
     edit_version: int | None = None
 
 

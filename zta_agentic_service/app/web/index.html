@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZTA Agentic Endpoint Console</title>
+  <style>
+    :root {
+      --bg: #f3f1ea;
+      --panel: #fffdf7;
+      --panel-2: #f7f4eb;
+      --text: #1f1d1a;
+      --muted: #686154;
+      --primary: #0e6b57;
+      --primary-strong: #0a4f40;
+      --border: #d9d2c3;
+      --ok: #1e7a2e;
+      --warn: #8a6510;
+      --err: #9e2f2f;
+      --mono: "Cascadia Code", "Consolas", monospace;
+      --sans: "Segoe UI", "Trebuchet MS", sans-serif;
+      --radius: 14px;
+      --shadow: 0 8px 24px rgba(33, 26, 15, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 20%, rgba(255, 214, 153, 0.22), transparent 40%),
+        radial-gradient(circle at 90% 0%, rgba(67, 149, 126, 0.18), transparent 33%),
+        var(--bg);
+      min-height: 100vh;
+      padding: 22px;
+    }
+
+    .shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 16px;
+      animation: fadeIn 260ms ease-out; 
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0.3px;
+      font-weight: 700;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel-2);
+    }
+
+    .card-body {
+      padding: 14px 16px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .list {
+      display: grid;
+      gap: 8px;
+      max-height: 70vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .agent-panel {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .agent-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .agent-list {
+      max-height: 180px;
+      overflow: auto;
+      padding-right: 4px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .agent-chip {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      padding: 8px;
+      cursor: pointer;
+      transition: all 120ms ease;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .agent-chip:hover {
+      transform: translateY(-1px);
+      border-color: #b7ae9a;
+    }
+
+    .agent-chip.active {
+      background: #eefaf7;
+      border-color: #7fc1af;
+    }
+
+    .template-btn {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text);
+      padding: 10px;
+      cursor: pointer;
+      transition: all 160ms ease;
+    }
+
+    .template-btn:hover {
+      border-color: #b7ae9a;
+      transform: translateY(-1px);
+    }
+
+    .template-btn.active {
+      background: #eefaf7;
+      border-color: #7fc1af;
+    }
+
+    .template-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .template-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      border: 1px solid transparent;
+    }
+
+    .m-get { background: #edf7ff; border-color: #91c4ea; color: #0f4f78; }
+    .m-post { background: #eaf9ec; border-color: #8fcd98; color: #1c6130; }
+    .m-put { background: #fff7e9; border-color: #e3c086; color: #7b5214; }
+    .m-delete { background: #fdeeee; border-color: #df9c9c; color: #8b2b2b; }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 130px 1fr;
+      align-items: center;
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 11px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 200px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 13px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      color: var(--text);
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .primary:hover {
+      background: var(--primary-strong);
+      border-color: var(--primary-strong);
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      background: #1f2428;
+      color: #f3f6f9;
+      border-radius: 10px;
+      overflow: auto;
+      max-height: 360px;
+      font-size: 12px;
+      font-family: var(--mono);
+      line-height: 1.4;
+    }
+
+    .status {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.err { color: var(--err); }
+
+    .mono {
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .list {
+        max-height: none;
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="card">
+      <div class="card-head">
+        <h2>Endpoint Templates</h2>
+      </div>
+      <div class="card-body stack">
+        <div class="small">Pick an endpoint template, adjust path/query/body, then send the request.</div>
+        <div class="agent-panel">
+          <div class="agent-toolbar">
+            <button id="loadAgentsBtn" class="primary" type="button">Load Agents</button>
+          </div>
+          <div id="agentLoadMeta" class="small">No agents loaded yet.</div>
+          <div id="agentList" class="agent-list"></div>
+        </div>
+        <div id="templateList" class="list"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>ZTA Agentic Test Console</h2>
+        <span id="methodBadge" class="badge m-get">GET</span>
+      </div>
+      <div class="card-body stack">
+        <div class="row">
+          <label for="baseUrl">Base URL</label>
+          <input id="baseUrl" placeholder="http://localhost:8000" />
+        </div>
+
+        <div class="row">
+          <label for="path">Path + Query</label>
+          <input id="path" placeholder="/health" />
+        </div>
+
+        <div class="row">
+          <label for="method">HTTP Method</label>
+          <select id="method">
+            <option>GET</option>
+            <option>POST</option>
+            <option>PUT</option>
+            <option>DELETE</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="requestBody">JSON Body</label>
+          <textarea id="requestBody" spellcheck="false" placeholder="{}"></textarea>
+        </div>
+
+        <div class="toolbar">
+          <button id="sendBtn" class="primary">Send Request</button>
+          <button id="formatBtn">Format JSON</button>
+          <button id="clearBtn">Clear Body</button>
+          <button id="mockConfigBtn">Mock Config</button>
+          <button id="copyCurlBtn">Copy curl</button>
+          <span id="requestMeta" class="small"></span>
+        </div>
+
+        <div class="stack">
+          <div class="row">
+            <label>Last Status</label>
+            <div id="statusLine" class="status mono">No request sent yet</div>
+          </div>
+
+          <div class="row">
+            <label>Response Headers</label>
+            <pre id="responseHeaders">{}</pre>
+          </div>
+
+          <div class="row">
+            <label>Response Body</label>
+            <pre id="responseBody">{}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const endpointTemplates = [
+      { name: "Health Check", method: "GET", path: "/health", body: null },
+      {
+        name: "Execute Agent",
+        method: "POST",
+        path: "/execute",
+        body: {
+          query: "How many leaves do I have left?",
+          tenant_id: "00000000-0000-0000-0000-000000000001",
+          user_context: {
+            user_id: "11111111-1111-1111-1111-111111111111",
+            tenant_id: "00000000-0000-0000-0000-000000000001",
+            persona: "employee",
+            department: "HR"
+          }
+        }
+      },
+      {
+        name: "Confirm Execution",
+        method: "POST",
+        path: "/confirm/00000000-0000-0000-0000-000000000010",
+        body: {
+          actor_user_id: "11111111-1111-1111-1111-111111111111",
+          decision: "confirm"
+        }
+      },
+      {
+        name: "Cancel Confirmation",
+        method: "DELETE",
+        path: "/confirm/00000000-0000-0000-0000-000000000010",
+        body: null
+      },
+      {
+        name: "Execution Status",
+        method: "GET",
+        path: "/executions/00000000-0000-0000-0000-000000000010/status",
+        body: null
+      },
+      { name: "Admin List Agents", method: "GET", path: "/admin/agents", body: null },
+      {
+        name: "Admin Get Agent Config",
+        method: "GET",
+        path: "/admin/agents/LEAVE_BALANCE_AGENT/config?tenant_id=00000000-0000-0000-0000-000000000001",
+        body: null
+      },
+      {
+        name: "Admin Enable Agent",
+        method: "PUT",
+        path: "/admin/agents/LEAVE_BALANCE_AGENT/enable?tenant_id=00000000-0000-0000-0000-000000000001",
+        body: null
+      },
+      {
+        name: "Admin Disable Agent",
+        method: "PUT",
+        path: "/admin/agents/LEAVE_BALANCE_AGENT/disable?tenant_id=00000000-0000-0000-0000-000000000001",
+        body: null
+      },
+      {
+        name: "Admin Update Tenant Config Draft",
+        method: "PUT",
+        path: "/admin/agents/LEAVE_BALANCE_AGENT/config?tenant_id=00000000-0000-0000-0000-000000000001&actor_user_id=11111111-1111-1111-1111-111111111111",
+        body: {
+          is_enabled: true,
+          custom_constraints: { max_daily_notifications: 3 },
+          approval_config: { requires_manager: false },
+          notification_channels: { email: true },
+          edit_version: 0
+        }
+      },
+      {
+        name: "Admin List Tenant Versions",
+        method: "GET",
+        path: "/admin/agents/LEAVE_BALANCE_AGENT/versions?tenant_id=00000000-0000-0000-0000-000000000001",
+        body: null
+      },
+      {
+        name: "Admin Publish Versions",
+        method: "POST",
+        path: "/admin/agents/LEAVE_BALANCE_AGENT/publish",
+        body: {
+          tenant_id: "00000000-0000-0000-0000-000000000001",
+          definition_version_id: "22222222-2222-2222-2222-222222222222",
+          config_version_id: "33333333-3333-3333-3333-333333333333",
+          actor_user_id: "11111111-1111-1111-1111-111111111111",
+          notes: "Publish for UAT",
+          expected_edit_version: 1
+        }
+      },
+      {
+        name: "Admin Rollback Versions",
+        method: "POST",
+        path: "/admin/agents/LEAVE_BALANCE_AGENT/rollback",
+        body: {
+          tenant_id: "00000000-0000-0000-0000-000000000001",
+          definition_version_id: "22222222-2222-2222-2222-222222222222",
+          config_version_id: "33333333-3333-3333-3333-333333333333",
+          actor_user_id: "11111111-1111-1111-1111-111111111111",
+          notes: "Rollback",
+          expected_edit_version: 2
+        }
+      },
+      { name: "System List Agents", method: "GET", path: "/system/agents", body: null },
+      {
+        name: "System Create Definition Draft",
+        method: "POST",
+        path: "/system/agents",
+        body: {
+          actor_user_id: "11111111-1111-1111-1111-111111111111",
+          definition: {
+            agent_key: "LEAVE_BALANCE_AGENT",
+            name: "Leave Balance",
+            description: "Check leave balance",
+            version: "1.0.0",
+            domain: "hr",
+            trigger_type: "user_query",
+            trigger_config: { keywords: ["leave", "balance"] },
+            input_schema: {},
+            output_schema: {},
+            action_steps: [
+              { step_id: "render", step_type: "render_template", timeout_ms: 1000, retry_policy: {}, config: { template: "Balance: {{query}}" } }
+            ],
+            rbac_permissions: { allowed_personas: ["employee", "manager"] },
+            constraints: {},
+            requires_confirmation: false,
+            confirmation_prompt: null,
+            chain_to: [],
+            allowed_output_channels: ["ui"],
+            is_sensitive_monitor: false,
+            status: "beta",
+            risk_rank: 40
+          }
+        }
+      },
+      {
+        name: "System Update Definition Draft",
+        method: "PUT",
+        path: "/system/agents/LEAVE_BALANCE_AGENT",
+        body: {
+          actor_user_id: "11111111-1111-1111-1111-111111111111",
+          expected_base_version: "1.0.0",
+          definition: {
+            agent_key: "LEAVE_BALANCE_AGENT",
+            name: "Leave Balance",
+            description: "Check leave balance and eligibility",
+            version: "1.0.1",
+            domain: "hr",
+            trigger_type: "user_query",
+            trigger_config: { keywords: ["leave", "balance", "eligibility"] },
+            input_schema: {},
+            output_schema: {},
+            action_steps: [
+              { step_id: "render", step_type: "render_template", timeout_ms: 1000, retry_policy: {}, config: { template: "Answer: {{query}}" } }
+            ],
+            rbac_permissions: { allowed_personas: ["employee", "manager"] },
+            constraints: {},
+            requires_confirmation: false,
+            confirmation_prompt: null,
+            chain_to: [],
+            allowed_output_channels: ["ui"],
+            is_sensitive_monitor: false,
+            status: "active",
+            risk_rank: 40
+          }
+        }
+      },
+      {
+        name: "System Update Agent Status",
+        method: "PUT",
+        path: "/system/agents/LEAVE_BALANCE_AGENT/status",
+        body: { status: "active" }
+      },
+      {
+        name: "System List Definition Versions",
+        method: "GET",
+        path: "/system/agents/LEAVE_BALANCE_AGENT/versions",
+        body: null
+      },
+      {
+        name: "System List Agent Tenants",
+        method: "GET",
+        path: "/system/agents/LEAVE_BALANCE_AGENT/tenants",
+        body: null
+      },
+      {
+        name: "System Execution Stats",
+        method: "GET",
+        path: "/system/executions",
+        body: null
+      }
+    ];
+
+    const templateList = document.getElementById("templateList");
+    const baseUrlInput = document.getElementById("baseUrl");
+    const pathInput = document.getElementById("path");
+    const methodSelect = document.getElementById("method");
+    const requestBody = document.getElementById("requestBody");
+    const responseHeaders = document.getElementById("responseHeaders");
+    const responseBody = document.getElementById("responseBody");
+    const statusLine = document.getElementById("statusLine");
+    const requestMeta = document.getElementById("requestMeta");
+    const methodBadge = document.getElementById("methodBadge");
+    const agentLoadMeta = document.getElementById("agentLoadMeta");
+    const agentList = document.getElementById("agentList");
+
+    const sendBtn = document.getElementById("sendBtn");
+    const formatBtn = document.getElementById("formatBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const mockConfigBtn = document.getElementById("mockConfigBtn");
+    const copyCurlBtn = document.getElementById("copyCurlBtn");
+    const loadAgentsBtn = document.getElementById("loadAgentsBtn");
+
+    let selectedIndex = 0;
+    let loadedAgents = [];
+    let selectedAgentId = null;
+
+    const KNOWN_AGENT_IDS = [
+      "LEAVE_BALANCE_AGENT",
+      "result_notification_v1",
+      "fee_reminder_v1",
+      "upi_payment_v1",
+      "refund_processing_v1",
+      "email_draft_send_v1",
+      "bulk_notification_v1",
+      "leave_approval_v1",
+      "meeting_scheduler_v1",
+      "payroll_query_v1",
+      "leave_balance_v1",
+      "sensitive_field_monitor_v1",
+    ];
+
+    const MOCK_CONFIG_BY_AGENT = {
+      result_notification_v1: {
+        notification_channel: "in_app",
+        semester_filter: "current",
+        improvement_rules: [],
+        message_template: "Result update ready. Attendance: {attendance_pct}%.\n\n{suggestions}",
+      },
+      fee_reminder_v1: {
+        channel: "in_app",
+        message_template: "Reminder: pending fee Rs. {outstanding_amount} due on {due_date}.",
+        days_before_due: 3,
+        dedup_window_hours: 24,
+      },
+      upi_payment_v1: {
+        payment_gateway: {
+          type: "stub",
+          api_key: "dummy-key",
+          merchant_upi_id: "college@upi",
+        },
+      },
+      refund_processing_v1: {
+        workflow_system: "stub_workflow",
+        finance_team_queue: "refunds",
+        finance_team_alias: "finance-team",
+        eligibility_rules: [
+          {
+            field: "days_since_payment",
+            operator: "lte",
+            value: 30,
+            reason: "Refunds are allowed only within 30 days.",
+          },
+        ],
+        processing_days: 7,
+      },
+      email_draft_send_v1: {
+        draft_only: true,
+        email_templates: {
+          general: {
+            to_alias: "recipient",
+            template: "Subject: {subject}\n\n{body}",
+          },
+        },
+      },
+      bulk_notification_v1: {
+        channel: "in_app",
+        daily_user_notification_limit: 3,
+      },
+      leave_approval_v1: {
+        hr_system: {
+          provider: "stub_hr",
+        },
+      },
+      meeting_scheduler_v1: {
+        calendar_system: {
+          provider: "stub_calendar",
+        },
+      },
+      payroll_query_v1: {
+        response_template: "payroll_summary",
+      },
+      leave_balance_v1: {
+        check_only: true,
+      },
+      sensitive_field_monitor_v1: {
+        auto_suspend_on_critical: false,
+        thresholds: {
+          volume_per_hour: 10,
+          bulk_result_rows: 20,
+          probing_queries: 5,
+          probing_window_minutes: 10,
+          after_hours_start: 20,
+          after_hours_end: 8,
+        },
+      },
+    };
+
+    function defaultBaseUrl() {
+      if (window.location.origin && window.location.origin.startsWith("http")) {
+        return window.location.origin;
+      }
+      return "http://localhost:8000";
+    }
+
+    function setMethodBadge(method) {
+      methodBadge.textContent = method;
+      methodBadge.className = `badge m-${method.toLowerCase()}`;
+    }
+
+    function renderTemplateList() {
+      templateList.innerHTML = "";
+      endpointTemplates.forEach((tpl, idx) => {
+        const button = document.createElement("button");
+        button.className = "template-btn" + (idx === selectedIndex ? " active" : "");
+        button.innerHTML = `
+          <div class="template-title">${tpl.name}</div>
+          <div class="template-meta">
+            <span>${tpl.method}</span>
+            <span>${tpl.path}</span>
+          </div>
+        `;
+        button.addEventListener("click", () => {
+          selectedIndex = idx;
+          applyTemplate(tpl);
+          renderTemplateList();
+        });
+        templateList.appendChild(button);
+      });
+    }
+
+    function applyTemplate(tpl) {
+      methodSelect.value = tpl.method;
+      pathInput.value = tpl.path;
+      requestBody.value = tpl.body ? JSON.stringify(tpl.body, null, 2) : "";
+      setMethodBadge(tpl.method);
+      requestMeta.textContent = `Loaded template: ${tpl.name}`;
+    }
+
+    function normalizeUrl(base, path) {
+      const cleanBase = base.replace(/\/+$/, "");
+      const cleanPath = path.startsWith("/") ? path : `/${path}`;
+      return `${cleanBase}${cleanPath}`;
+    }
+
+    function applyAgentToCurrentRequest(agentId) {
+      selectedAgentId = agentId;
+      pathInput.value = replaceAgentPlaceholders(pathInput.value, agentId);
+
+      const raw = requestBody.value.trim();
+      if (!raw) {
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        const replaced = replaceAgentInAny(parsed, agentId);
+        requestBody.value = JSON.stringify(replaced, null, 2);
+      } catch {
+        // Keep original body untouched if invalid JSON.
+      }
+    }
+
+    function replaceAgentPlaceholders(text, agentId) {
+      let value = String(text || "");
+      KNOWN_AGENT_IDS.forEach((token) => {
+        value = value.split(token).join(agentId);
+      });
+      return value;
+    }
+
+    function replaceAgentInAny(value, agentId) {
+      if (typeof value === "string") {
+        return replaceAgentPlaceholders(value, agentId);
+      }
+
+      if (Array.isArray(value)) {
+        return value.map((item) => replaceAgentInAny(item, agentId));
+      }
+
+      if (value && typeof value === "object") {
+        const out = {};
+        Object.entries(value).forEach(([key, item]) => {
+          out[key] = replaceAgentInAny(item, agentId);
+        });
+        return out;
+      }
+
+      return value;
+    }
+
+    function renderAgentList() {
+      agentList.innerHTML = "";
+
+      if (!loadedAgents.length) {
+        const empty = document.createElement("div");
+        empty.className = "small";
+        empty.textContent = "No agents loaded.";
+        agentList.appendChild(empty);
+        return;
+      }
+
+      loadedAgents.forEach((agent) => {
+        const id = String(agent.agent_id || "");
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "agent-chip" + (id === selectedAgentId ? " active" : "");
+        chip.innerHTML = `${id}<br>${String(agent.status || "")}${agent.handler_class ? ` | ${agent.handler_class}` : ""}`;
+        chip.addEventListener("click", () => {
+          applyAgentToCurrentRequest(id);
+          renderAgentList();
+          requestMeta.textContent = `Applied agent ${id} to path/body placeholders`;
+        });
+        agentList.appendChild(chip);
+      });
+    }
+
+    function selectedAgentFromPath() {
+      const match = pathInput.value.match(/\/agents\/([^/?]+)/i);
+      if (match && match[1]) {
+        return decodeURIComponent(match[1]);
+      }
+      return selectedAgentId || (loadedAgents[0] ? loadedAgents[0].agent_id : null);
+    }
+
+    function getMockConfig(agentId) {
+      return MOCK_CONFIG_BY_AGENT[agentId] || { check_only: true };
+    }
+
+    function ensureSystemDefinitionFields(body, agentId) {
+      if (!body.definition || typeof body.definition !== "object") {
+        body.definition = {};
+      }
+      const def = body.definition;
+      const personaDefaults = ["student", "staff", "faculty", "admin", "system", "compliance"];
+
+      def.agent_key = agentId;
+      def.trigger_config_schema = def.trigger_config_schema || { type: "object" };
+      def.required_data_scope = def.required_data_scope || [];
+      def.output_type = def.output_type || "read";
+      def.approval_level = def.approval_level || "user";
+      def.allowed_personas = Array.isArray(def.allowed_personas) && def.allowed_personas.length ? def.allowed_personas : personaDefaults;
+      def.handler_class = def.handler_class || (loadedAgents.find((item) => item.agent_id === agentId)?.handler_class || "LeaveBalanceHandler");
+      def.is_side_effect = Boolean(def.is_side_effect || false);
+      def.risk_level = def.risk_level || "low";
+      if (typeof def.is_active !== "boolean") {
+        def.is_active = true;
+      }
+    }
+
+    function applyMockConfig() {
+      const method = methodSelect.value;
+      if (!["POST", "PUT"].includes(method)) {
+        requestMeta.textContent = "Mock Config works with POST/PUT requests only";
+        return;
+      }
+
+      const activeAgentId = selectedAgentFromPath() || "leave_balance_v1";
+      applyAgentToCurrentRequest(activeAgentId);
+
+      let body = {};
+      const raw = requestBody.value.trim();
+      if (raw) {
+        try {
+          body = JSON.parse(raw);
+        } catch (err) {
+          statusLine.className = "status warn mono";
+          statusLine.textContent = `Cannot apply mock config to invalid JSON: ${err.message}`;
+          return;
+        }
+      }
+
+      const pathLower = pathInput.value.toLowerCase();
+      const mockConfig = getMockConfig(activeAgentId);
+
+      if (pathLower.includes("/admin/agents/") && pathLower.includes("/config")) {
+        body.is_enabled = true;
+        body.config = { ...(body.config || {}), ...mockConfig };
+        if (typeof body.edit_version !== "number") {
+          body.edit_version = 0;
+        }
+        body.custom_constraints = body.custom_constraints || {};
+        body.approval_config = body.approval_config || {};
+        body.notification_channels = body.notification_channels || { in_app: true };
+      }
+
+      if (pathLower === "/execute" || pathLower.endsWith("/execute")) {
+        body.query = body.query || `run ${activeAgentId}`;
+        body.tenant_id = body.tenant_id || "00000000-0000-0000-0000-000000000001";
+        body.user_context = body.user_context || {};
+        body.user_context.user_id = body.user_context.user_id || "11111111-1111-1111-1111-111111111111";
+        body.user_context.tenant_id = body.user_context.tenant_id || body.tenant_id;
+        body.user_context.persona = body.user_context.persona || "admin";
+        body.user_context.department = body.user_context.department || "Operations";
+      }
+
+      if (pathLower === "/system/agents" || pathLower.startsWith("/system/agents/")) {
+        ensureSystemDefinitionFields(body, activeAgentId);
+      }
+
+      requestBody.value = JSON.stringify(body, null, 2);
+      requestMeta.textContent = `Mock config applied for ${activeAgentId}`;
+    }
+
+    async function loadAgents() {
+      const url = normalizeUrl(baseUrlInput.value.trim(), "/system/agents");
+      requestMeta.textContent = `Loading agents from ${url}`;
+      agentLoadMeta.textContent = "Loading agents...";
+
+      try {
+        const res = await fetch(url);
+        const payload = await res.json();
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        loadedAgents = items;
+        selectedAgentId = items.length ? String(items[0].agent_id) : null;
+        renderAgentList();
+
+        agentLoadMeta.textContent = items.length
+          ? `Loaded ${items.length} agents. Click one to apply its ID.`
+          : "No agents found. Seed templates first and retry.";
+
+        if (selectedAgentId) {
+          applyAgentToCurrentRequest(selectedAgentId);
+        }
+      } catch (err) {
+        loadedAgents = [];
+        selectedAgentId = null;
+        renderAgentList();
+        agentLoadMeta.textContent = `Failed to load agents: ${err.message}`;
+      }
+    }
+
+    function prettyPrint(content) {
+      try {
+        return JSON.stringify(JSON.parse(content), null, 2);
+      } catch {
+        return content;
+      }
+    }
+
+    function classifyStatus(statusCode) {
+      if (statusCode >= 200 && statusCode < 300) return "ok";
+      if (statusCode >= 400 && statusCode < 500) return "warn";
+      return "err";
+    }
+
+    async function sendRequest() {
+      const method = methodSelect.value;
+      const url = normalizeUrl(baseUrlInput.value.trim(), pathInput.value.trim());
+      const rawBody = requestBody.value.trim();
+
+      const options = { method, headers: {} };
+
+      if (rawBody && method !== "GET" && method !== "DELETE") {
+        try {
+          const parsed = JSON.parse(rawBody);
+          options.body = JSON.stringify(parsed);
+          options.headers["Content-Type"] = "application/json";
+        } catch (err) {
+          statusLine.className = "status err mono";
+          statusLine.textContent = `Invalid JSON body: ${err.message}`;
+          return;
+        }
+      }
+
+      const started = performance.now();
+      requestMeta.textContent = `Sending ${method} ${url}`;
+
+      try {
+        const res = await fetch(url, options);
+        const elapsed = Math.round(performance.now() - started);
+        const text = await res.text();
+
+        const headersObj = {};
+        res.headers.forEach((value, key) => {
+          headersObj[key] = value;
+        });
+
+        statusLine.className = `status ${classifyStatus(res.status)} mono`;
+        statusLine.textContent = `${res.status} ${res.statusText} (${elapsed} ms)`;
+
+        responseHeaders.textContent = JSON.stringify(headersObj, null, 2);
+        responseBody.textContent = prettyPrint(text || "{}");
+
+        requestMeta.textContent = `Completed ${method} ${url}`;
+      } catch (err) {
+        statusLine.className = "status err mono";
+        statusLine.textContent = `Request failed: ${err.message}`;
+        responseHeaders.textContent = "{}";
+        responseBody.textContent = "{}";
+      }
+    }
+
+    function formatJsonBody() {
+      const raw = requestBody.value.trim();
+      if (!raw) {
+        requestBody.value = "";
+        return;
+      }
+      try {
+        requestBody.value = JSON.stringify(JSON.parse(raw), null, 2);
+      } catch (err) {
+        statusLine.className = "status warn mono";
+        statusLine.textContent = `Cannot format invalid JSON: ${err.message}`;
+      }
+    }
+
+    async function copyCurlCommand() {
+      const method = methodSelect.value;
+      const url = normalizeUrl(baseUrlInput.value.trim(), pathInput.value.trim());
+      const rawBody = requestBody.value.trim();
+
+      let curl = `curl -X ${method} \"${url}\"`;
+      if (rawBody && method !== "GET" && method !== "DELETE") {
+        curl += " -H \"Content-Type: application/json\"";
+        curl += ` -d '${rawBody.replace(/'/g, "'\\''")}'`;
+      }
+
+      try {
+        await navigator.clipboard.writeText(curl);
+        requestMeta.textContent = "Copied curl command to clipboard";
+      } catch {
+        requestMeta.textContent = "Clipboard access failed; copy from browser console if needed";
+      }
+    }
+
+    methodSelect.addEventListener("change", () => setMethodBadge(methodSelect.value));
+    sendBtn.addEventListener("click", sendRequest);
+    formatBtn.addEventListener("click", formatJsonBody);
+    clearBtn.addEventListener("click", () => { requestBody.value = ""; });
+    mockConfigBtn.addEventListener("click", applyMockConfig);
+    copyCurlBtn.addEventListener("click", copyCurlCommand);
+    loadAgentsBtn.addEventListener("click", loadAgents);
+
+    baseUrlInput.value = defaultBaseUrl();
+    applyTemplate(endpointTemplates[0]);
+    renderTemplateList();
+    renderAgentList();
+  </script>
+</body>
+</html>

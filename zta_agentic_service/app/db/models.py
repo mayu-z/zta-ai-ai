@@ -47,18 +47,27 @@ class AgentDefinition(Base, TimestampMixin):
     domain: Mapped[str] = mapped_column(String(80), nullable=False)
     trigger_type: Mapped[TriggerType] = mapped_column(Enum(TriggerType), nullable=False)
     trigger_config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    trigger_config_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    required_data_scope: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     input_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     output_schema: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     action_steps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     rbac_permissions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     constraints: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    output_type: Mapped[str] = mapped_column(String(32), nullable=False, default="read")
     requires_confirmation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    approval_level: Mapped[str] = mapped_column(String(32), nullable=False, default="user")
+    allowed_personas: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     confirmation_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     chain_to: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     allowed_output_channels: Mapped[list[str]] = mapped_column(
         ARRAY(String), nullable=False, default=list
     )
+    handler_class: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    is_side_effect: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    risk_level: Mapped[str] = mapped_column(String(32), nullable=False, default="low")
     is_sensitive_monitor: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     status: Mapped[AgentDefinitionStatus] = mapped_column(
         Enum(AgentDefinitionStatus), nullable=False, default=AgentDefinitionStatus.BETA
     )
@@ -68,6 +77,14 @@ class AgentDefinition(Base, TimestampMixin):
         UniqueConstraint("name", "version", name="uq_agent_name_version"),
         CheckConstraint("risk_rank >= 0 AND risk_rank <= 100", name="ck_agent_risk_rank_range"),
     )
+
+    @property
+    def template_id(self) -> str:
+        return self.agent_key
+
+    @template_id.setter
+    def template_id(self, value: str) -> None:
+        self.agent_key = value
 
 
 class TenantAgentConfig(Base, TimestampMixin):
@@ -83,6 +100,10 @@ class TenantAgentConfig(Base, TimestampMixin):
     custom_constraints: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     approval_config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     notification_channels: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trigger_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active_definition_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("agent_definition_versions.id", ondelete="SET NULL")
     )
@@ -94,7 +115,12 @@ class TenantAgentConfig(Base, TimestampMixin):
     __table_args__ = (
         UniqueConstraint("tenant_id", "agent_definition_id", name="uq_tenant_agent_config"),
         Index("ix_tenant_agent_enabled", "tenant_id", "is_enabled"),
+        Index("ix_tenant_template_lookup", "tenant_id", "agent_definition_id"),
     )
+
+    @property
+    def instance_id(self) -> uuid.UUID:
+        return self.id
 
 
 class AgentExecution(Base):
@@ -145,6 +171,31 @@ class AgentExecution(Base):
         Index("ix_execution_tenant_status_created", "tenant_id", "status", "created_at"),
         Index("ix_execution_waiting_state", "tenant_id", "current_state"),
         CheckConstraint("chain_depth >= 0 AND chain_depth <= 3", name="ck_chain_depth_max3"),
+    )
+
+
+class AgentExecutionLog(Base):
+    __tablename__ = "agent_execution_logs"
+
+    log_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    instance_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenant_agent_configs.id", ondelete="RESTRICT"), nullable=False
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    triggered_by: Mapped[str] = mapped_column(String(120), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    action_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(64), nullable=False)
+    execution_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_summary: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    output_summary: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, index=True
+    )
+
+    __table_args__ = (
+        Index("ix_agent_execution_logs_instance_created", "instance_id", "created_at"),
     )
 
 
