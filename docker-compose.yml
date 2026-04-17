@@ -1,7 +1,9 @@
+name: zta_agentic_service
+
 services:
   api:
     build:
-      context: .
+      context: ./zta_agentic_service
     environment:
       APP_NAME: zta-agentic-service
       ENVIRONMENT: docker
@@ -23,7 +25,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    command: ["sh", "-c", "python -m app.db.init_db && alembic upgrade head && PYTHONPATH=/app python scripts/seed_agent_templates.py --tenant-id $${SEED_TENANT_ID:-00000000-0000-0000-0000-000000000001} && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    command:
+      [
+        "sh",
+        "-c",
+        "python -m app.db.init_db && alembic upgrade head && PYTHONPATH=/app python scripts/seed_agent_templates.py --tenant-id $${SEED_TENANT_ID:-00000000-0000-0000-0000-000000000001} && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      ]
 
   postgres:
     image: postgres:16-alpine
