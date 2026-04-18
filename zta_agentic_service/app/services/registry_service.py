@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.enums import AgentDefinitionStatus, PublishAction, PublishStatus, TriggerType
@@ -35,7 +35,7 @@ class RegistryService:
 
     def load_agent(self, agent_id: str, tenant_id: str) -> dict[str, Any]:
         tenant_uuid = self._to_uuid(tenant_id)
-        definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+        definition = self._get_definition_for_agent_id(agent_id)
         if definition is None:
             raise KeyError(f"Unknown agent: {agent_id}")
 
@@ -163,7 +163,7 @@ class RegistryService:
 
     def get_tenant_agent_config(self, tenant_id: str, agent_id: str) -> dict[str, Any]:
         tenant_uuid = self._to_uuid(tenant_id)
-        definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+        definition = self._get_definition_for_agent_id(agent_id)
         if definition is None:
             raise KeyError(f"Unknown agent: {agent_id}")
 
@@ -196,7 +196,7 @@ class RegistryService:
     def set_agent_enabled(self, tenant_id: str, agent_id: str, enabled: bool) -> dict[str, Any]:
         tenant_uuid = self._to_uuid(tenant_id)
         try:
-            definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+            definition = self._get_definition_for_agent_id(agent_id)
             if definition is None:
                 raise KeyError(f"Unknown agent: {agent_id}")
 
@@ -221,7 +221,7 @@ class RegistryService:
             self._invalidate_tenant_cache(str(cfg.tenant_id))
             return {
                 "tenant_id": str(cfg.tenant_id),
-                "agent_id": agent_id,
+                "agent_id": definition.agent_key,
                 "instance_id": str(cfg.id),
                 "is_enabled": cfg.is_enabled,
             }
@@ -230,7 +230,7 @@ class RegistryService:
             raise
 
     def list_agent_tenants(self, agent_id: str) -> list[dict[str, Any]]:
-        definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+        definition = self._get_definition_for_agent_id(agent_id)
         if definition is None:
             raise KeyError(f"Unknown agent: {agent_id}")
 
@@ -333,7 +333,7 @@ class RegistryService:
             raise
 
     def list_definition_versions(self, agent_id: str) -> dict[str, Any]:
-        definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+        definition = self._get_definition_for_agent_id(agent_id)
         if definition is None:
             raise KeyError(f"Unknown agent: {agent_id}")
 
@@ -344,7 +344,7 @@ class RegistryService:
         ).all()
 
         return {
-            "agent_id": agent_id,
+            "agent_id": definition.agent_key,
             "items": [
                 {
                     "version_id": str(row.id),
@@ -374,7 +374,7 @@ class RegistryService:
 
         return {
             "tenant_id": tenant_id,
-            "agent_id": agent_id,
+            "agent_id": definition.agent_key,
             "tenant_config_id": str(tenant_cfg.id),
             "active_definition_version_id": (
                 str(tenant_cfg.active_definition_version_id)
@@ -451,12 +451,12 @@ class RegistryService:
 
     def update_agent_status(self, agent_id: str, status: str) -> dict[str, str]:
         try:
-            definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+            definition = self._get_definition_for_agent_id(agent_id)
             if definition is None:
                 raise KeyError(f"Unknown agent: {agent_id}")
             definition.status = AgentDefinitionStatus(status)
             self.db.commit()
-            return {"agent_id": agent_id, "status": definition.status.value}
+            return {"agent_id": definition.agent_key, "status": definition.status.value}
         except Exception:
             self.db.rollback()
             raise
@@ -765,7 +765,7 @@ class RegistryService:
 
     def _get_tenant_config(self, tenant_id: str, agent_id: str) -> tuple[AgentDefinition, TenantAgentConfig]:
         tenant_uuid = self._to_uuid(tenant_id)
-        definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+        definition = self._get_definition_for_agent_id(agent_id)
         if definition is None:
             raise KeyError(f"Unknown agent: {agent_id}")
 
@@ -786,7 +786,7 @@ class RegistryService:
         agent_id: str,
     ) -> tuple[AgentDefinition, TenantAgentConfig]:
         tenant_uuid = self._to_uuid(tenant_id)
-        definition = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == agent_id))
+        definition = self._get_definition_for_agent_id(agent_id)
         if definition is None:
             raise KeyError(f"Unknown agent: {agent_id}")
 
@@ -1020,6 +1020,33 @@ class RegistryService:
     @staticmethod
     def _to_uuid(value: str) -> uuid.UUID:
         return uuid.UUID(str(value))
+
+    def _get_definition_for_agent_id(self, agent_id: str) -> AgentDefinition | None:
+        candidates = self._agent_key_candidates(agent_id)
+        for candidate in candidates:
+            row = self.db.scalar(select(AgentDefinition).where(AgentDefinition.agent_key == candidate))
+            if row is not None:
+                return row
+
+        lowered_candidates = [candidate.lower() for candidate in candidates]
+        stmt = select(AgentDefinition).where(func.lower(AgentDefinition.agent_key).in_(lowered_candidates))
+        return self.db.scalar(stmt)
+
+    @staticmethod
+    def _agent_key_candidates(agent_id: str) -> list[str]:
+        raw = str(agent_id or "").strip()
+        if not raw:
+            return []
+
+        normalized = raw.lower()
+        if normalized.endswith("_agent"):
+            normalized = f"{normalized[:-6]}_v1"
+
+        candidates: list[str] = []
+        for value in (raw, normalized):
+            if value and value not in candidates:
+                candidates.append(value)
+        return candidates
 
     @staticmethod
     def _to_uuid_or_none(value: str | None) -> uuid.UUID | None:

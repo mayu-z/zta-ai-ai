@@ -5,7 +5,7 @@ import json
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents.base_handler import BaseAgentHandler
@@ -124,8 +124,32 @@ class AgentRegistryLoader:
         except ValueError:
             pass
 
-        stmt = select(AgentTemplate).where(AgentTemplate.agent_key == template_id)
+        candidates = self._agent_key_candidates(str(template_id))
+        for candidate in candidates:
+            stmt = select(AgentTemplate).where(AgentTemplate.agent_key == candidate)
+            row = self.db.scalar(stmt)
+            if row is not None:
+                return row
+
+        lowered_candidates = [candidate.lower() for candidate in candidates]
+        stmt = select(AgentTemplate).where(func.lower(AgentTemplate.agent_key).in_(lowered_candidates))
         return self.db.scalar(stmt)
+
+    @staticmethod
+    def _agent_key_candidates(agent_id: str) -> list[str]:
+        raw = str(agent_id or "").strip()
+        if not raw:
+            return []
+
+        normalized = raw.lower()
+        if normalized.endswith("_agent"):
+            normalized = f"{normalized[:-6]}_v1"
+
+        candidates: list[str] = []
+        for value in (raw, normalized):
+            if value and value not in candidates:
+                candidates.append(value)
+        return candidates
 
     @staticmethod
     def _intent_matches(intent: str, template: AgentTemplate) -> bool:
