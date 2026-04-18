@@ -7,8 +7,13 @@ from typing import Any
 from sqlalchemy import select
 
 from app.agents.handlers import HANDLER_REGISTRY
-from app.db.enums import AgentDefinitionStatus, TriggerType
-from app.db.models import AgentDefinition, TenantAgentConfig
+from app.db.enums import (
+    ActionRollbackStrategy,
+    ActionType,
+    AgentDefinitionStatus,
+    TriggerType,
+)
+from app.db.models import ActionRegistry, AgentDefinition, TenantAgentConfig
 from app.db.session import SessionLocal
 
 AGENT_SEED_DEFINITIONS: list[dict[str, Any]] = [
@@ -441,6 +446,142 @@ AGENT_SEED_DEFINITIONS: list[dict[str, Any]] = [
 ]
 
 
+ACTION_SEED_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "name": "dsar_request",
+        "action_type": ActionType.PRIVACY,
+        "description": "Track and fulfill data subject access requests",
+        "required_permissions": ["privacy.read", "privacy.write"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.COMPENSATING_TX,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "erasure_request",
+        "action_type": ActionType.PRIVACY,
+        "description": "Soft-delete records for approved erasure requests",
+        "required_permissions": ["privacy.erase"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.SOFT_DELETE,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "escalate_to_manager",
+        "action_type": ActionType.ACCESS,
+        "description": "Escalate blocked decisions to manager queue",
+        "required_permissions": ["workflow.escalate"],
+        "requires_approval": False,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.COMPENSATING_TX,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "bulk_soft_delete",
+        "action_type": ActionType.OPERATIONS,
+        "description": "Bulk mark records with deleted_at for reversible cleanup",
+        "required_permissions": ["records.delete.soft"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.SOFT_DELETE,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "field_masking_update",
+        "action_type": ActionType.GOVERNANCE,
+        "description": "Update field classification and masking strategy",
+        "required_permissions": ["policy.masking.write"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.SNAPSHOT,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "consent_withdrawal",
+        "action_type": ActionType.PRIVACY,
+        "description": "Withdraw consent and revoke downstream processing access",
+        "required_permissions": ["privacy.consent.write"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.COMPENSATING_TX,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "incident_response",
+        "action_type": ActionType.INCIDENT,
+        "description": "Freeze access and execute incident containment workflow",
+        "required_permissions": ["security.incident.write"],
+        "requires_approval": False,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.COMPENSATING_TX,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "policy_update",
+        "action_type": ActionType.GOVERNANCE,
+        "description": "Publish and validate policy updates",
+        "required_permissions": ["policy.write"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.SNAPSHOT,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "connector_refresh",
+        "action_type": ActionType.OPERATIONS,
+        "description": "Refresh connector schema and detect drift",
+        "required_permissions": ["connector.refresh"],
+        "requires_approval": False,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.SNAPSHOT,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "audit_export",
+        "action_type": ActionType.REPORTING,
+        "description": "Export signed audit logs",
+        "required_permissions": ["audit.export"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.NONE,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "segment_activation",
+        "action_type": ActionType.ACCESS,
+        "description": "Activate target segments under policy constraints",
+        "required_permissions": ["segment.activate"],
+        "requires_approval": True,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.COMPENSATING_TX,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+    {
+        "name": "scheduled_reporting",
+        "action_type": ActionType.REPORTING,
+        "description": "Generate periodic compliance reports",
+        "required_permissions": ["reporting.generate"],
+        "requires_approval": False,
+        "approval_sla_hours": 4,
+        "rollback_strategy": ActionRollbackStrategy.NONE,
+        "dry_run_supported": True,
+        "is_active": True,
+    },
+]
+
+
 def validate_seed_payload(template_payload: dict[str, Any], tenant_config: dict[str, Any]) -> None:
     handler_name = str(template_payload["handler_class"])
     handler_type = HANDLER_REGISTRY.get(handler_name)
@@ -455,9 +596,10 @@ def validate_seed_payload(template_payload: dict[str, Any], tenant_config: dict[
         )
 
 
-def upsert_template_and_instance(tenant_id: uuid.UUID) -> tuple[int, int]:
+def upsert_template_and_instance(tenant_id: uuid.UUID) -> tuple[int, int, int]:
     created_or_updated_templates = 0
     created_or_updated_instances = 0
+    created_or_updated_actions = 0
 
     with SessionLocal() as session:
         for definition in AGENT_SEED_DEFINITIONS:
@@ -503,9 +645,22 @@ def upsert_template_and_instance(tenant_id: uuid.UUID) -> tuple[int, int]:
                 existing_instance.created_by = "seed_agent_templates"
             created_or_updated_instances += 1
 
+        for definition in ACTION_SEED_DEFINITIONS:
+            existing_action = session.scalar(
+                select(ActionRegistry).where(ActionRegistry.name == definition["name"])
+            )
+            if existing_action is None:
+                existing_action = ActionRegistry(**definition)
+                session.add(existing_action)
+            else:
+                for field, value in definition.items():
+                    setattr(existing_action, field, value)
+                session.add(existing_action)
+            created_or_updated_actions += 1
+
         session.commit()
 
-    return created_or_updated_templates, created_or_updated_instances
+    return created_or_updated_templates, created_or_updated_instances, created_or_updated_actions
 
 
 def parse_args() -> argparse.Namespace:
@@ -521,10 +676,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     tenant_id = uuid.UUID(str(args.tenant_id))
-    templates, instances = upsert_template_and_instance(tenant_id)
+    templates, instances, actions = upsert_template_and_instance(tenant_id)
     print(
         f"Seed complete for tenant {tenant_id}: "
-        f"{templates} templates upserted, {instances} tenant instances upserted."
+        f"{templates} templates upserted, {instances} tenant instances upserted, "
+        f"{actions} actions upserted."
     )
 
 

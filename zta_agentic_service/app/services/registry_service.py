@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -18,6 +19,8 @@ from app.db.models import (
 )
 from app.schemas.registry import AgentDefinitionContract, TenantAgentConfigPatch
 from app.services.cache import RegistryCache
+
+logger = logging.getLogger(__name__)
 
 
 class RegistryValidationError(ValueError):
@@ -113,12 +116,28 @@ class RegistryService:
 
     def list_enabled_agents(self, tenant_id: str, persona_type: str) -> list[dict[str, Any]]:
         tenant_uuid = self._to_uuid(tenant_id)
+        logger.info(
+            "registry.list_enabled_agents.query_start",
+            extra={
+                "tenant_id": tenant_id,
+                "tenant_uuid": str(tenant_uuid),
+                "persona_type": persona_type,
+                "where": {
+                    "tenant_agent_configs.tenant_id": str(tenant_uuid),
+                    "tenant_agent_configs.is_enabled": True,
+                },
+            },
+        )
         stmt = (
             select(AgentDefinition, TenantAgentConfig)
             .join(TenantAgentConfig, TenantAgentConfig.agent_definition_id == AgentDefinition.id)
             .where(TenantAgentConfig.tenant_id == tenant_uuid, TenantAgentConfig.is_enabled.is_(True))
         )
         rows = self.db.execute(stmt).all()
+        logger.info(
+            "registry.list_enabled_agents.join_rows_loaded",
+            extra={"tenant_id": tenant_id, "row_count": len(rows)},
+        )
 
         enabled: list[dict[str, Any]] = []
         for definition, tenant_cfg in rows:
@@ -130,6 +149,15 @@ class RegistryService:
                 "rbac_permissions"
             ].get("allowed_personas", [])
             if allowed and persona_type not in allowed:
+                logger.info(
+                    "registry.list_enabled_agents.persona_filtered_out",
+                    extra={
+                        "tenant_id": tenant_id,
+                        "agent_id": runtime_definition["agent_key"],
+                        "persona_type": persona_type,
+                        "allowed_personas": allowed,
+                    },
+                )
                 continue
             enabled.append(
                 {
@@ -144,7 +172,121 @@ class RegistryService:
                     "tenant_config_id": str(tenant_cfg.id),
                 }
             )
+        logger.info(
+            "registry.list_enabled_agents.query_done",
+            extra={
+                "tenant_id": tenant_id,
+                "persona_type": persona_type,
+                "enabled_count": len(enabled),
+                "enabled_agent_ids": [item["agent_id"] for item in enabled],
+            },
+        )
         return enabled
+
+    def debug_agent_runtime_snapshot(
+        self,
+        tenant_id: str,
+        persona_type: str,
+        agent_id: str,
+    ) -> dict[str, Any]:
+        tenant_uuid = self._to_uuid(tenant_id)
+        definition = self._get_definition_for_agent_id(agent_id)
+        if definition is None:
+            payload = {
+                "tenant_id": tenant_id,
+                "persona_type": persona_type,
+                "agent_id": agent_id,
+                "error": "agent_definition_not_found",
+            }
+            logger.info("registry.debug_agent_runtime_snapshot", extra=payload)
+            return payload
+
+        tenant_cfg = self.db.scalar(
+            select(TenantAgentConfig).where(
+                TenantAgentConfig.tenant_id == tenant_uuid,
+                TenantAgentConfig.agent_definition_id == definition.id,
+            )
+        )
+        if tenant_cfg is None:
+            payload = {
+                "tenant_id": tenant_id,
+                "persona_type": persona_type,
+                "agent_id": agent_id,
+                "agent_definition_id": str(definition.id),
+                "error": "tenant_config_not_found",
+            }
+            logger.info("registry.debug_agent_runtime_snapshot", extra=payload)
+            return payload
+
+        runtime_cfg = self._runtime_tenant_config(tenant_cfg)
+        runtime_definition = self._runtime_definition(
+            definition=definition,
+            active_definition_version_id=tenant_cfg.active_definition_version_id,
+        )
+        allowed_personas = runtime_definition.get("allowed_personas") or runtime_definition.get(
+            "rbac_permissions", {}
+        ).get("allowed_personas", [])
+        persona_allowed = bool(not allowed_personas or persona_type in allowed_personas)
+
+        active_def_version_status = None
+        active_cfg_version_status = None
+        if tenant_cfg.active_definition_version_id is not None:
+            def_ver = self.db.get(AgentDefinitionVersion, tenant_cfg.active_definition_version_id)
+            active_def_version_status = def_ver.status.value if def_ver is not None else None
+        if tenant_cfg.active_config_version_id is not None:
+            cfg_ver = self.db.get(TenantAgentConfigVersion, tenant_cfg.active_config_version_id)
+            active_cfg_version_status = cfg_ver.status.value if cfg_ver is not None else None
+
+        payload = {
+            "tenant_id": tenant_id,
+            "tenant_uuid": str(tenant_uuid),
+            "persona_type": persona_type,
+            "agent_id": agent_id,
+            "agent_definition": {
+                "id": str(definition.id),
+                "agent_key": definition.agent_key,
+                "name": definition.name,
+                "version": definition.version,
+                "domain": definition.domain,
+                "is_active": definition.is_active,
+                "status": definition.status.value,
+                "allowed_personas": definition.allowed_personas,
+                "rbac_permissions": definition.rbac_permissions,
+                "trigger_config": definition.trigger_config,
+                "handler_class": definition.handler_class,
+            },
+            "tenant_config": {
+                "id": str(tenant_cfg.id),
+                "tenant_id": str(tenant_cfg.tenant_id),
+                "agent_definition_id": str(tenant_cfg.agent_definition_id),
+                "is_enabled": tenant_cfg.is_enabled,
+                "active_definition_version_id": (
+                    str(tenant_cfg.active_definition_version_id)
+                    if tenant_cfg.active_definition_version_id
+                    else None
+                ),
+                "active_config_version_id": (
+                    str(tenant_cfg.active_config_version_id) if tenant_cfg.active_config_version_id else None
+                ),
+                "active_definition_version_status": active_def_version_status,
+                "active_config_version_status": active_cfg_version_status,
+                "edit_version": tenant_cfg.edit_version,
+            },
+            "runtime_expectations": {
+                "where": {
+                    "tenant_agent_configs.tenant_id": str(tenant_uuid),
+                    "tenant_agent_configs.agent_definition_id": str(definition.id),
+                    "tenant_agent_configs.is_enabled": True,
+                },
+                "persona_allowed": persona_allowed,
+                "allowed_personas": allowed_personas,
+                "runtime_is_enabled": runtime_cfg.get("is_enabled"),
+                "runtime_is_active": runtime_definition.get("is_active"),
+                "runtime_status": runtime_definition.get("status"),
+            },
+        }
+        logger.info("registry.debug_agent_runtime_snapshot", extra=payload)
+        return payload
 
     def list_global_library(self) -> list[dict[str, Any]]:
         rows = self.db.scalars(select(AgentDefinition)).all()

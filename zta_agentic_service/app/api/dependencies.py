@@ -7,6 +7,7 @@ from app.agents.executor import AgentExecutor
 from app.agents.registry_loader import AgentRegistryLoader
 from app.core.config import Settings, get_settings
 from app.db.session import get_db_session
+from app.integrations.ticketing import get_ticketing_client
 from app.services.context_manager import ContextManager
 from app.services.intent_resolver import IntentResolver
 from app.services.orchestrator import ExecutionOrchestrator
@@ -70,10 +71,13 @@ def get_orchestrator(
     state_machine: ExecutionStateMachine = Depends(get_state_machine),
     step_executor: StepExecutor = Depends(get_step_executor),
     context_manager: ContextManager = Depends(get_context_manager),
+    cache: RegistryCache = Depends(get_registry_cache),
 ) -> ExecutionOrchestrator:
     return ExecutionOrchestrator(
         state_machine=state_machine,
         step_executor=step_executor,
         context_manager=context_manager,
         max_chain_depth=settings.max_chain_depth,
+        redis_client=cache.redis,
+        ticketing_client=get_ticketing_client(settings),
     )

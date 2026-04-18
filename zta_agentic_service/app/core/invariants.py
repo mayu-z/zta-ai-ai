@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+import logging
 
 from app.core.config import Settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -27,4 +30,15 @@ def validate_startup_invariants(settings: Settings) -> None:
         errors.append("TOKENIZATION_SECRET_KEY must be set to a non-default value")
 
     if errors:
+        logger.error("invariants.validation_failed", extra={"errors": errors})
         raise RuntimeError("Startup invariant check failed: " + "; ".join(errors))
+
+    logger.info(
+        "invariants.validation_passed",
+        extra={
+            "max_chain_depth": settings.max_chain_depth,
+            "intent_auto_select_threshold": settings.intent_auto_select_threshold,
+            "intent_clarification_threshold": settings.intent_clarification_threshold,
+            "intent_margin_threshold": settings.intent_margin_threshold,
+        },
+    )

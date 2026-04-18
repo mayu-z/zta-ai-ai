@@ -21,6 +21,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
 from app.db.enums import (
+    ActionExecutionStatus,
+    ActionRollbackStrategy,
+    ActionType,
     AgentDefinitionStatus,
     ExecutionState,
     ExecutionStatus,
@@ -332,6 +335,65 @@ class RegistryPublishEvent(Base):
     event_metadata: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=utcnow
+    )
+
+
+class ActionRegistry(Base, TimestampMixin):
+    __tablename__ = "action_registry"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(120), nullable=False, unique=True)
+    action_type: Mapped[ActionType] = mapped_column(Enum(ActionType), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    required_permissions: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    requires_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    approval_sla_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
+    rollback_strategy: Mapped[ActionRollbackStrategy] = mapped_column(
+        Enum(ActionRollbackStrategy), nullable=False, default=ActionRollbackStrategy.NONE
+    )
+    dry_run_supported: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        CheckConstraint("approval_sla_hours >= 1", name="ck_action_registry_approval_sla_positive"),
+    )
+
+
+class ActionExecution(Base):
+    __tablename__ = "action_executions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    action_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    triggered_by: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[ActionExecutionStatus] = mapped_column(
+        Enum(ActionExecutionStatus), nullable=False, default=ActionExecutionStatus.PENDING, index=True
+    )
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_action_execution_status_created", "status", "created_at"),
+    )
+
+
+class ActionAuditLog(Base):
+    __tablename__ = "action_audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    execution_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("action_executions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    step_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    actor: Mapped[str] = mapped_column(String(120), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_action_audit_execution_timestamp", "execution_id", "timestamp"),
     )
 
 

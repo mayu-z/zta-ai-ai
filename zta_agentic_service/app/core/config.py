@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0")
     broker_url: str = Field(default="redis://localhost:6379/1")
 
+    ticketing_provider: str = Field(default="none")
+    jira_base_url: str = Field(default="")
+    jira_token: str = Field(default="")
+    sn_base_url: str = Field(default="")
+    sn_user: str = Field(default="")
+    sn_pass: str = Field(default="")
+
     llm_provider: str = Field(default="stub")
     llm_model: str = Field(default="intent-stub")
 

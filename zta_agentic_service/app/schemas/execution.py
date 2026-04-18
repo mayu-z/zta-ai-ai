@@ -14,6 +14,15 @@ class ExecuteRequest(BaseModel):
     tenant_id: str
 
 
+class AdminExecuteByAgentRequest(BaseModel):
+    persona: str
+    query: str
+    tenant_id: str
+    user_id: str = "admin-diagnostic"
+    department: str | None = "diagnostics"
+    confirmed: bool = False
+
+
 class ExecutionResult(BaseModel):
     execution_id: str
     status: str

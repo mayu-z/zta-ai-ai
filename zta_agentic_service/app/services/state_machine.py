@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+import logging
 
 from app.db.enums import ExecutionState
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidStateTransitionError(ValueError):
@@ -40,11 +43,33 @@ class ExecutionStateMachine:
         reason: str,
         actor_user_id: str | None = None,
     ) -> TransitionRecord:
+        logger.info(
+            "state_machine.transition_attempt",
+            extra={
+                "from_state": current_state.value,
+                "to_state": next_state.value,
+                "reason": reason,
+                "actor_user_id": actor_user_id,
+            },
+        )
         allowed = ALLOWED_TRANSITIONS.get(current_state, set())
         if next_state not in allowed:
+            logger.info(
+                "state_machine.transition_rejected",
+                extra={
+                    "from_state": current_state.value,
+                    "to_state": next_state.value,
+                    "reason": reason,
+                    "allowed_transitions": [state.value for state in allowed],
+                },
+            )
             raise InvalidStateTransitionError(
                 f"Invalid transition {current_state.value} -> {next_state.value}"
             )
+        logger.info(
+            "state_machine.transition_applied",
+            extra={"from_state": current_state.value, "to_state": next_state.value, "reason": reason},
+        )
         return TransitionRecord(
             from_state=current_state,
             to_state=next_state,

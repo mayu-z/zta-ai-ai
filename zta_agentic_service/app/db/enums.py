@@ -59,3 +59,30 @@ class PluginStatus(StrEnum):
     ACTIVE = "active"
     DISABLED = "disabled"
     DEPRECATED = "deprecated"
+
+
+class ActionType(StrEnum):
+    PRIVACY = "privacy"
+    ACCESS = "access"
+    GOVERNANCE = "governance"
+    OPERATIONS = "operations"
+    REPORTING = "reporting"
+    INCIDENT = "incident"
+
+
+class ActionRollbackStrategy(StrEnum):
+    SOFT_DELETE = "soft_delete"
+    COMPENSATING_TX = "compensating_tx"
+    SNAPSHOT = "snapshot"
+    NONE = "none"
+
+
+class ActionExecutionStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    AWAITING_APPROVAL = "awaiting_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ROLLED_BACK = "rolled_back"

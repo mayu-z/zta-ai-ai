@@ -73,6 +73,8 @@ class AgentRegistryLoader:
         for name, parameter in signature.parameters.items():
             if name == "self":
                 continue
+            if parameter.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                continue
             if name in self.handler_dependencies:
                 kwargs[name] = self.handler_dependencies[name]
             elif parameter.default is inspect._empty:
